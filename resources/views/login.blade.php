@@ -32,7 +32,7 @@
                     </form>
                     
                     <div class="text-center mt-4">
-                        <a href="/" class="text-decoration-none">← Volver al inicio</a>
+                        <a href="{{ route('home') }}" class="text-decoration-none">← Volver al inicio</a>
                     </div>
                 </div>
             </div>

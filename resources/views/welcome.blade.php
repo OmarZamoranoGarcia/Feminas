@@ -56,7 +56,7 @@
             <a href="#" class="btn btn-primary btn-lg me-3">Explorar Productos</a>
             <a href="#" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
             <div class="mt-4">
-                <a href="/login" class="text-decoration-none fw-bold">¿Ya tienes cuenta? Inicia sesión aquí</a>
+                <a href="{{ route('login') }}" class="text-decoration-none fw-bold">¿Ya tienes cuenta? Inicia sesión aquí</a>
             </div>
         </div>
     </header>
