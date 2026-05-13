@@ -1,8 +1,15 @@
-@extends('app')
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevMart - Tu Marketplace de Desarrollo</title>
+    
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Tu CSS Modularizado -->
+    <link href="{{ asset('css/style.css') }}" rel="stylesheet">
 
-@section('title', 'DevMart - Tu Marketplace de Desarrollo')
-
-@push('styles')
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -14,7 +21,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            background-color: var(--bs-body-bg);
+            background-color: var(--bs-body-tertiary-bg);
             color: var(--bs-body-color);
         }
         .feature-card {
@@ -45,11 +52,37 @@
             font-size: 1.5rem;
         }
     </style>
-@endpush
 
-@section('content')
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="{{ route('home') }}">Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Productos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Vender</a></li>
+                    <li class="nav-item"><a class="nav-link fw-bold text-primary" href="{{ route('login') }}">Iniciar Sesión</a></li>
+                    <li class="nav-item"><a class="nav-link text-danger fw-bold" href="{{ route('admin') }}">Admin</a></li>
+                    <li class="nav-item ms-3">
+                        <button class="btn btn-link nav-link dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">☀️</button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-    <header class="hero-section bg-body-tertiary py-5">
+    <header class="hero-section py-5">
         <div class="container">
             <h1 class="display-3 fw-bold mb-4">Encuentra y Vende Soluciones de Desarrollo</h1>
             <p class="lead mb-5">DevMart es el marketplace definitivo para desarrolladores. Descubre herramientas, componentes y servicios que impulsarán tus proyectos.</p>
@@ -88,27 +121,28 @@
         </div>
     </section>
 
-@endsection
+    <footer class="bg-body-tertiary text-center py-4 mt-5 border-top">
+        <div class="container">
+            <p class="mb-0">&copy; {{ date('Y') }} DevMart. Todos los derechos reservados.</p>
+        </div>
+    </footer>
 
-@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const toggleButton = document.getElementById('darkModeToggle');
-            const htmlElement = document.documentElement;
+            if (toggleButton) {
+                const htmlElement = document.documentElement;
+                toggleButton.innerHTML = htmlElement.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
 
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                htmlElement.setAttribute('data-bs-theme', savedTheme);
-                toggleButton.innerHTML = savedTheme === 'dark' ? '🌙' : '☀️';
+                toggleButton.addEventListener('click', () => {
+                    const newTheme = htmlElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+                    htmlElement.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
+                });
             }
-
-            toggleButton.addEventListener('click', () => {
-                let currentTheme = htmlElement.getAttribute('data-bs-theme');
-                let newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                htmlElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
-            });
         });
     </script>
-@endpush
+</body>
+</html>
