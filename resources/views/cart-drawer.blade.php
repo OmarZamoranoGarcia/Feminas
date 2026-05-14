@@ -72,11 +72,13 @@ document.addEventListener('DOMContentLoaded', function () {
             items.forEach(item => {
                 if (!item.product) return;
                 this.cartData[item.product.id] = {
+                    id:       item.product.id,
                     cart_id:  item.cart_id,
                     name:     item.product.name,
                     price:    parseFloat(item.product.price),
                     quantity: item.qty,
                     img:      item.product.img,
+                    stock:    item.product.stock || 0,
                 };
             });
             this.render();
@@ -97,6 +99,41 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             // Always reload from server to keep badge + list in sync
             if (window.reloadCart) await window.reloadCart();
+        },
+
+        async changeQuantity(cartId, productId, newQty) {
+            if (newQty < 1) return;
+            
+            const item = this.cartData[productId];
+            if (!item) return;
+
+            if (newQty > item.stock) {
+                alert(`Lo sentimos, solo quedan ${item.stock} unidades disponibles.`);
+                return;
+            }
+
+            const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+            const params = window.cartParams ? window.cartParams() : '';
+            try {
+                const res = await fetch(`/api/cart/${cartId}?${params}`, {
+                    method: 'PUT',
+                    credentials: 'same-origin',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF 
+                    },
+                    body: JSON.stringify({ qty: newQty }),
+                });
+
+                if (res.ok) {
+                    if (window.reloadCart) await window.reloadCart();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'Error al actualizar la cantidad.');
+                }
+            } catch (err) {
+                console.error('Error de red:', err);
+            }
         },
 
         async clearCart() {
@@ -147,14 +184,18 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- Qty controls + precio + eliminar -->
                             <div class="d-flex align-items-center gap-2 flex-shrink-0">
                                 <button class="btn btn-sm btn-outline-secondary rounded-circle"
-                                        style="width:30px;height:30px;padding:0;line-height:1;" disabled>
+                                        style="width:30px;height:30px;padding:0;line-height:1;"
+                                        onclick="cartDrawer.changeQuantity('${item.cart_id}', '${item.id}', ${item.quantity - 1})"
+                                        ${item.quantity <= 1 ? 'disabled' : ''}>
                                     <i class="bi bi-dash" style="pointer-events:none;"></i>
                                 </button>
                                 <span class="fw-bold text-center" style="min-width:20px;font-size:.95rem;">
                                     ${item.quantity}
                                 </span>
                                 <button class="btn btn-sm btn-outline-secondary rounded-circle"
-                                        style="width:30px;height:30px;padding:0;line-height:1;" disabled>
+                                        style="width:30px;height:30px;padding:0;line-height:1;"
+                                        onclick="cartDrawer.changeQuantity('${item.cart_id}', '${item.id}', ${item.quantity + 1})"
+                                        ${item.quantity >= item.stock ? 'disabled' : ''}>
                                     <i class="bi bi-plus" style="pointer-events:none;"></i>
                                 </button>
 

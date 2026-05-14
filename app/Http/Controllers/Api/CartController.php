@@ -39,7 +39,8 @@ class CartController extends Controller
             return response()->json(['success' => false, 'message' => 'Se requiere user_id o session_token.'], 422);
         }
 
-        // Check if item already exists in this cart
+        $qtyToAdd = $validated['qty'] ?? 1;
+
         $existing = Carrito::where('id_producto', $validated['product_id'])
             ->when(!empty($validated['user_id']),
                 fn ($q) => $q->where('id_usuario', $validated['user_id']),
@@ -48,15 +49,40 @@ class CartController extends Controller
             ->first();
 
         if ($existing) {
-            $existing->increment('cantidad', $validated['qty'] ?? 1);
+            $existing->load('producto');
+            if (!$existing->producto) {
+                return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
+            }
+
+            $newQty = $existing->cantidad + $qtyToAdd;
+            if ($newQty > $existing->producto->stock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No hay stock suficiente. Solo quedan {$existing->producto->stock} unidades.",
+                ], 422);
+            }
+
+            $existing->cantidad = $newQty;
+            $existing->save();
             $item = $existing->fresh('producto.vendedor');
         } else {
+            $product = Producto::find($validated['product_id']);
+            if (!$product) {
+                return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
+            }
+            if ($qtyToAdd > $product->stock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No hay stock suficiente. Solo quedan {$product->stock} unidades.",
+                ], 422);
+            }
+
             $item = Carrito::create([
                 'id_carrito'    => Str::uuid()->toString(),
                 'id_usuario'    => $validated['user_id'] ?? null,
                 'session_token' => $validated['session_token'] ?? null,
                 'id_producto'   => $validated['product_id'],
-                'cantidad'      => $validated['qty'] ?? 1,
+                'cantidad'      => $qtyToAdd,
             ]);
             $item->load('producto.vendedor');
         }
@@ -65,6 +91,47 @@ class CartController extends Controller
             'success' => true,
             'item'    => $this->formatItem($item),
         ], 201);
+    }
+
+    /**
+     * PUT /api/cart/{id}
+     * Update quantity for an existing cart item.
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'qty'           => ['required', 'integer', 'min:1'],
+            'user_id'       => ['nullable', 'string'],
+            'session_token' => ['nullable', 'string'],
+        ]);
+
+        $item = Carrito::with('producto')->findOrFail($id);
+
+        $userId       = $request->query('user_id');
+        $sessionToken = $request->query('session_token');
+
+        $ownsItem = ($userId && $item->id_usuario === $userId)
+                 || ($sessionToken && $item->session_token === $sessionToken);
+
+        if (!$ownsItem) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
+        }
+
+        if (!$item->producto) {
+            return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
+        }
+
+        if ($validated['qty'] > $item->producto->stock) {
+            return response()->json([
+                'success' => false,
+                'message' => "No hay stock suficiente. Solo quedan {$item->producto->stock} unidades.",
+            ], 422);
+        }
+
+        $item->cantidad = $validated['qty'];
+        $item->save();
+
+        return response()->json(['success' => true, 'item' => $this->formatItem($item->fresh('producto.vendedor'))]);
     }
 
     /**
@@ -117,6 +184,7 @@ class CartController extends Controller
                 'price' => number_format((float) $p->precio, 2),
                 'img'   => $p->imagen_url
                     ?? 'https://placehold.co/400x240/1a1f35/5a6cff?text=' . urlencode($p->nombre),
+                'stock' => $p->stock ?? 0,
             ] : null,
         ];
     }

@@ -288,10 +288,6 @@
                         <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top gap-2">
                             <span class="fw-bold fs-5">$${p.price}</span>
                             <div class="d-flex gap-1">
-                                ${currentUser ? `
-                                    <a href="{{ route('admin') }}" class="btn btn-sm btn-outline-secondary" title="Gestionar en panel">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>` : ''}
                                 <button
                                     class="btn btn-sm btn-primary btn-add-cart"
                                     data-product-id="${p.id}"
