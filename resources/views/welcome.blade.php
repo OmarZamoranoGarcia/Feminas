@@ -12,7 +12,23 @@
 
     <style>
         body { transition: background-color 0.35s ease, color 0.35s ease; }
-        .product-card-img { width: 100%; height: 180px; object-fit: cover; border-radius: .5rem; }
+        .product-image {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+            border-radius: .75rem;
+            background: rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .product-card-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            background: #fff;
+        }
         .btn-add-cart { transition: transform .15s ease; }
         .btn-add-cart:active { transform: scale(.93); }
         .cart-badge {
@@ -281,7 +297,9 @@
             productGrid.innerHTML = products.map(p => `
                 <div class="col-md-4">
                     <div class="feature-card h-100 d-flex flex-column">
-                        <img src="${p.img}" class="product-card-img mb-3" alt="${p.name}">
+                        <div class="product-image mb-3">
+                            <img src="${p.img}" class="product-card-img" alt="${p.name}">
+                        </div>
                         <p class="text-muted small mb-1 text-uppercase fw-semibold">${p.category}</p>
                         <h4 class="h5 fw-bold flex-grow-1">${p.name}</h4>
                         <p class="text-muted small mb-2">${p.seller}</p>
@@ -292,6 +310,7 @@
                                     class="btn btn-sm btn-primary btn-add-cart"
                                     data-product-id="${p.id}"
                                     data-product-name="${p.name}"
+                                    data-product-price="${p.price}"
                                     ${p.stock === 0 ? 'disabled' : ''}
                                 >
                                     ${p.stock === 0
@@ -310,8 +329,15 @@
             const btn = e.target.closest('.btn-add-cart');
             if (!btn) return;
 
-            const productId   = btn.dataset.productId;
-            const productName = btn.dataset.productName;
+            const productId    = btn.dataset.productId;
+            const productName  = btn.dataset.productName;
+            const productPrice = btn.dataset.productPrice;
+            
+            // Cache price in localStorage for cart drawer fallback
+            const priceCache = JSON.parse(localStorage.getItem('priceCache') || '{}');
+            priceCache[productId] = parseFloat(productPrice);
+            localStorage.setItem('priceCache', JSON.stringify(priceCache));
+            
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 

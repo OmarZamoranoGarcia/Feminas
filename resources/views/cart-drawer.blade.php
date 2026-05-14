@@ -66,16 +66,23 @@ document.addEventListener('DOMContentLoaded', function () {
         /**
          * Called by welcome.blade.php after every /api/cart response.
          * items: [{ cart_id, qty, product: { id, name, price, img } }]
+         * Falls back to cached price from localStorage if product.price is missing.
          */
         syncFromApi(items) {
+            const priceCache = JSON.parse(localStorage.getItem('priceCache') || '{}');
             this.cartData = {};
             items.forEach(item => {
                 if (!item.product) return;
+                // Use API price if available, fallback to cache
+                let price = parseFloat(item.product.price);
+                if (isNaN(price)) {
+                    price = parseFloat(priceCache[item.product.id]) || 0;
+                }
                 this.cartData[item.product.id] = {
                     id:       item.product.id,
                     cart_id:  item.cart_id,
                     name:     item.product.name,
-                    price:    parseFloat(item.product.price),
+                    price:    price,
                     quantity: item.qty,
                     img:      item.product.img,
                     stock:    item.product.stock || 0,

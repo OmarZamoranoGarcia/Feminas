@@ -46,18 +46,34 @@
             border: 1px solid var(--bs-border-color-translucent);
         }
         .table { margin-bottom: 0; }
-        .product-thumb {
-            width: 52px; height: 52px;
-            object-fit: cover;
-            border-radius: .5rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            position: relative;
-            z-index: 1;
+        .product-thumb-wrapper {
+            width: 52px;
+            height: 52px;
+            overflow: hidden;
+            border-radius: .75rem;
+            background: rgba(0,0,0,.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .product-thumb:hover {
-            transform: scale(1.8);
-            z-index: 10;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        .product-thumb {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .product-thumb-wrapper:hover .product-thumb {
+            transform: scale(1.1);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+        .product-preview-img {
+            width: 100%;
+            max-width: 220px;
+            max-height: 220px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
         }
         .btn-gradient {
             background: linear-gradient(45deg, #0d6efd, #0dcaf0);
@@ -202,8 +218,8 @@
                             <input type="file" class="form-control rounded-3" id="productImage" accept="image/*">
                             <div class="form-text text-muted">Límite de imagen: 2 MB.</div>
                             <div class="mt-2 text-center">
-                                <img id="imagePreview" src="" class="img-thumbnail d-none" 
-                                     style="max-height: 100px; width: auto; object-fit: contain;">
+                                <img id="imagePreview" src="" class="img-thumbnail d-none product-preview-img" 
+                                     alt="Vista previa de imagen de producto">
                             </div>
                         </div>
                     </div>
@@ -438,7 +454,9 @@
             productTableBody.innerHTML = products.map(p => `
                 <tr>
                     <td class="ps-3">
-                        <img src="${p.img}" class="product-thumb" alt="${p.name}">
+                        <div class="product-thumb-wrapper">
+                            <img src="${p.img}" class="product-thumb" alt="${p.name}">
+                        </div>
                     </td>
                     <td>
                         <strong>${p.name}</strong><br>
