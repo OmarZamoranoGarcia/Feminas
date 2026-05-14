@@ -38,8 +38,11 @@ class DetalleOrden extends Model
         return $this->belongsTo(Producto::class, 'id_producto', 'id_producto');
     }
 
+    /**
+     * The seller
+     */
     public function vendedor()
     {
-        return $this->belongsTo(Vendedor::class, 'id_vendedor', 'id_vendedor');
+        return $this->belongsTo(Usuario::class, 'id_vendedor', 'id_usuario');
     }
 }

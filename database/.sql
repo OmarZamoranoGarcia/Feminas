@@ -46,6 +46,7 @@ CREATE TABLE productos (
     precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
     stock INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
     categoria VARCHAR(100),
+    img LONGTEXT,
     estado ENUM('activo', 'agotado', 'oculto') DEFAULT 'activo',
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_vendedor) REFERENCES vendedores(id_vendedor) ON DELETE CASCADE,

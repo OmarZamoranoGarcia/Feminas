@@ -81,11 +81,6 @@
                 <p class="lead mb-5">DevMart es el marketplace definitivo para ti. Descubre una gran variedad de productos.</p>
                 <div class="hero-cta-group justify-content-center">
                     <a href="#productSection" class="btn btn-primary btn-lg">Explorar Productos</a>
-                    {{--
-                        "Vender en DevMart" href is set by JS:
-                        - logged in  → /admin
-                        - logged out → /register
-                    --}}
                     <a id="sellCta" href="{{ route('register') }}" class="btn btn-outline-secondary btn-lg">
                         Vender en DevMart
                     </a>
@@ -212,7 +207,7 @@
             window.location.href = "{{ route('home') }}";
         });
 
-        // ── 2. Cart identity helpers (exposed globally for cart-drawer) ────────
+        // ── Cart identity (exposed globally for cart-drawer) ──────────────────
         const userId = currentUser ? currentUser.id : null;
 
         let sessionToken = localStorage.getItem('sessionToken');
@@ -226,7 +221,6 @@
             localStorage.setItem('sessionToken', sessionToken);
         }
 
-        // Exposed so cart-drawer.blade.php can build DELETE query strings
         window.cartParams = function () {
             return userId
                 ? `user_id=${encodeURIComponent(userId)}`
@@ -238,7 +232,7 @@
             return { ...base, ...extra };
         }
 
-        // ── 3. UI refs ─────────────────────────────────────────────────────────
+        // ── UI refs ───────────────────────────────────────────────────────────
         const productGrid = document.getElementById('productGrid');
         const searchInput = document.getElementById('searchInput');
         const btnSearch   = document.getElementById('btnSearch');
@@ -259,7 +253,7 @@
 
         let currentCategory = '';
 
-        // ── 4. Products ────────────────────────────────────────────────────────
+        // ── Products ──────────────────────────────────────────────────────────
         async function fetchProducts() {
             loader.classList.remove('d-none');
             productGrid.innerHTML = '';
@@ -351,63 +345,22 @@
         // ── Cart ──────────────────────────────────────────────────────────────
         async function loadCart() {
             try {
-                const res   = await fetch(`/api/cart?${window.cartParams()}`, { credentials: 'same-origin' });
+                const res = await fetch(`/api/cart?${window.cartParams()}`, { credentials: 'same-origin' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const items = await res.json();
-                updateBadge(items);
-                // Sync the drawer (uses syncFromApi, not the old in-memory approach)
+                // Badge
+                const count = items.reduce((s, i) => s + i.qty, 0);
+                cartBadge.textContent = count;
+                cartBadge.classList.toggle('d-none', count === 0);
+                // Drawer
                 if (window.cartDrawer) window.cartDrawer.syncFromApi(items);
-            } catch {
-                console.warn('Error cargando carrito.');
+            } catch (err) {
+                console.warn('Error cargando carrito:', err.message);
             }
         }
 
-        // Exposed so cart-drawer can call it after a DELETE
+        // Exposed so cart-drawer can trigger a reload after DELETE
         window.reloadCart = loadCart;
-
-        function updateBadge(items) {
-            const count = items.reduce((s, i) => s + i.qty, 0);
-            cartBadge.textContent = count;
-            cartBadge.classList.toggle('d-none', count === 0);
-            cartTotalEl.textContent = '$' + total.toFixed(2);
-            checkoutBtn.disabled = count === 0;
-
-            if (!items.length) {
-                cartList.innerHTML = '<li class="list-group-item text-center text-muted py-4"><i class="bi bi-cart-x fs-2 d-block mb-1"></i>Tu carrito está vacío</li>';
-                return;
-            }
-
-            cartList.innerHTML = items.map(item => `
-                <li class="list-group-item px-0 d-flex align-items-center gap-2">
-                    <img src="${item.product.img}" width="46" height="46"
-                         style="object-fit:cover;border-radius:.4rem" alt="${item.product.name}">
-                    <div class="flex-grow-1 overflow-hidden">
-                        <div class="fw-semibold text-truncate">${item.product.name}</div>
-                        <small class="text-muted">×${item.qty} — $${(parseFloat(item.product.price) * item.qty).toFixed(2)}</small>
-                    </div>
-                    <button class="btn btn-sm btn-outline-danger btn-remove-cart flex-shrink-0"
-                            data-cart-id="${item.cart_id}" title="Eliminar">
-                        <i class="bi bi-trash pointer-events-none"></i>
-                    </button>
-                </li>
-            `).join('');
-        }
-
-        document.getElementById('cartList').addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-remove-cart');
-            if (!btn) return;
-            btn.disabled = true;
-            try {
-                const res = await fetch(`/api/cart/${btn.dataset.cartId}?${cartParams()}`, {
-                    method: 'DELETE',
-                    credentials: 'same-origin',
-                    headers: { 'X-CSRF-TOKEN': CSRF },
-                });
-                if (res.ok) await loadCart();
-            } catch {
-                alert('Error al eliminar del carrito.');
-                btn.disabled = false;
-            }
-        });
 
         // ── Search & filters ──────────────────────────────────────────────────
         btnSearch.addEventListener('click', fetchProducts);

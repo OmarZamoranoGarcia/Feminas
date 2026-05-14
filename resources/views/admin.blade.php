@@ -197,6 +197,14 @@
                                 <option value="oculto">Oculto</option>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label for="productImage" class="form-label fw-medium">Imagen del Producto</label>
+                            <input type="file" class="form-control rounded-3" id="productImage" accept="image/*">
+                            <div class="mt-2 text-center">
+                                <img id="imagePreview" src="" class="img-thumbnail d-none" 
+                                     style="max-height: 100px; width: auto; object-fit: contain;">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
@@ -314,6 +322,9 @@
         const productCatInput    = document.getElementById('productCategory');
         const productStatusInput = document.getElementById('productStatus');
 
+        const productImageInput  = document.getElementById('productImage');
+        const imagePreview       = document.getElementById('imagePreview');
+
         let pendingDeleteId   = null;
         let pendingDeleteName = '';
 
@@ -337,9 +348,46 @@
             productStockInput.value  = '';
             productCatInput.value    = '';
             productStatusInput.value = 'activo';
+            productImageInput.value  = '';
+            imagePreview.src         = '';
+            imagePreview.classList.add('d-none');
             document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
             saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
         }
+
+        // Función para comprimir la imagen y convertirla a Base64 (Texto)
+        const compressImage = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const scale = Math.min(1, 800 / img.width); // Máximo 800px de ancho
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7)); // Comprimir al 70% de calidad
+                    };
+                };
+            });
+        };
+
+        // Vista previa de la imagen al seleccionar archivo
+        productImageInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
 
         async function fetchProducts() {
             productTableBody.innerHTML = `
@@ -395,6 +443,7 @@
                                 data-stock="${p.stock}"
                                 data-category="${p.category}"
                                 data-status="${p.status}"
+                                data-img="${p.img}"
                                 title="Editar">
                             <i class="bi bi-pencil-square text-primary"></i>
                         </button>
@@ -451,25 +500,32 @@
             saveProductButton.disabled = true;
 
             const existingId = productIdInput.value;
-            const url    = existingId ? `/api/products/${existingId}` : '/api/products';
-            const method = existingId ? 'PUT' : 'POST';
+            const url = existingId ? `/api/products/${existingId}` : '/api/products';
 
-            const payload = {
-                vendor_id:   vendorId,
-                name:        productNameInput.value.trim(),
-                description: productDescInput.value.trim(),
-                price:       parseFloat(productPriceInput.value),
-                stock:       parseInt(productStockInput.value, 10),
-                category:    productCatInput.value.trim() || 'general',
-                status:      productStatusInput.value,
-            };
+            const formData = new FormData();
+            formData.append('vendor_id', vendorId);
+            formData.append('name', productNameInput.value.trim());
+            formData.append('description', productDescInput.value.trim());
+            formData.append('price', parseFloat(productPriceInput.value));
+            formData.append('stock', parseInt(productStockInput.value, 10));
+            formData.append('category', productCatInput.value.trim() || 'general');
+            formData.append('status', productStatusInput.value);
+
+            if (productImageInput.files[0]) {
+                const compressedBase64 = await compressImage(productImageInput.files[0]);
+                formData.append('img', compressedBase64);
+            }
+
+            if (existingId) {
+                formData.append('_method', 'PUT');
+            }
 
             try {
                 const res  = await fetch(url, {
-                    method,
+                    method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                    body: JSON.stringify(payload),
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                    body: formData,
                 });
                 const data = await res.json();
 
