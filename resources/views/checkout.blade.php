@@ -235,6 +235,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    // Dark mode toggle
     (function(){
         var t=localStorage.getItem('theme')||'light';
         var toggle=document.getElementById('darkModeToggle');
@@ -250,19 +251,23 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
+        // Obtener usuario actual
         let currentUser = null;
         try {
             const r = await fetch('/api/me', { credentials: 'same-origin' });
             const d = await r.json();
             if (d.success) currentUser = d.user;
-        } catch {}
+            console.log('Usuario actual:', currentUser);
+        } catch (e) {
+            console.error('Error obteniendo usuario:', e);
+        }
 
         if (!currentUser) {
             document.getElementById('notLoggedAlert').classList.remove('d-none');
             return;
         }
 
-        const userId = currentUser.id;
+        const userId = currentUser.id_usuario || currentUser.id;
         const sessionToken = localStorage.getItem('sessionToken') ?? '';
 
         function cartParams() {
@@ -271,11 +276,23 @@
                 : `session_token=${encodeURIComponent(sessionToken)}`;
         }
 
+        // Obtener items del carrito
         let cartItems = [];
         try {
             const r = await fetch(`/api/cart?${cartParams()}`, { credentials: 'same-origin' });
-            cartItems = await r.json();
-        } catch {}
+            const text = await r.text();
+            console.log('Respuesta del carrito:', text);
+            try {
+                cartItems = JSON.parse(text);
+            } catch (e) {
+                console.error('Error parseando respuesta del carrito:', e);
+                cartItems = [];
+            }
+        } catch (e) {
+            console.error('Error obteniendo carrito:', e);
+        }
+
+        console.log('Items del carrito:', cartItems);
 
         if (!cartItems.length) {
             document.getElementById('emptyCartAlert').classList.remove('d-none');
@@ -284,12 +301,15 @@
 
         document.getElementById('checkoutBody').classList.remove('d-none');
 
-        if (currentUser.name) document.getElementById('shippingName').value = currentUser.name;
+        // Rellenar nombre si está disponible
+        if (currentUser.nombre) {
+            document.getElementById('shippingName').value = currentUser.nombre;
+        }
 
         const COMMISSION_RATE = 0.10;
 
         function subtotal() {
-            return cartItems.reduce((s, i) => s + parseFloat(i.product.price) * i.qty, 0);
+            return cartItems.reduce((s, i) => s + parseFloat(i.product?.price || i.price) * (i.qty || i.quantity), 0);
         }
 
         function shippingCost() {
@@ -299,24 +319,31 @@
 
         function renderItems() {
             const list = document.getElementById('orderItemsList');
-            list.innerHTML = cartItems.map(i => `
-                <div class="order-item-row py-2 d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="fw-medium" style="font-size:.95rem;">${i.product.name}</div>
-                        <div class="text-muted small">x${i.qty} · $${parseFloat(i.product.price).toFixed(2)} c/u</div>
+            list.innerHTML = cartItems.map(i => {
+                const product = i.product || i;
+                const qty = i.qty || i.quantity || 1;
+                const price = parseFloat(product.price || 0);
+                return `
+                    <div class="order-item-row py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-medium" style="font-size:.95rem;">${product.name || product.nombre || 'Producto'}</div>
+                            <div class="text-muted small">x${qty} · $${price.toFixed(2)} c/u</div>
+                        </div>
+                        <span class="fw-semibold">$${(price * qty).toFixed(2)}</span>
                     </div>
-                    <span class="fw-semibold">$${(parseFloat(i.product.price)*i.qty).toFixed(2)}</span>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function buildSplits() {
             const vendorMap = {};
             cartItems.forEach(i => {
-                const vid = i.product.vendor_id ?? 'unknown';
-                const seller = i.product.seller ?? 'Vendedor';
+                const product = i.product || i;
+                const qty = i.qty || i.quantity || 1;
+                const vid = product.vendor_id || product.id_vendedor || 'unknown';
+                const seller = product.seller || product.vendedor || 'Vendedor';
                 if (!vendorMap[vid]) vendorMap[vid] = { seller, subtotal: 0 };
-                vendorMap[vid].subtotal += parseFloat(i.product.price) * i.qty;
+                vendorMap[vid].subtotal += parseFloat(product.price || 0) * qty;
             });
             return Object.entries(vendorMap).map(([vid, v]) => ({
                 vendor_id: vid,
@@ -340,7 +367,7 @@
             const splitSection = document.getElementById('splitBreakdown');
             const splitList = document.getElementById('splitList');
 
-            if (splits.length > 1 || true) {
+            if (splits.length > 0) {
                 splitSection.classList.remove('d-none');
                 splitList.innerHTML = splits.map(s => `
                     <div class="split-row mb-3">
@@ -366,6 +393,7 @@
             r.addEventListener('change', renderSummary);
         });
 
+        // Formateo de tarjeta
         function formatCard(e) {
             let v = e.target.value.replace(/\D/g,'').substring(0,16);
             e.target.value = v.replace(/(.{4})/g,'$1 ').trim();
@@ -385,6 +413,7 @@
             b.classList.remove('d-none');
         }
 
+        // Procesar pedido
         document.getElementById('placeOrderBtn').addEventListener('click', async () => {
             const name    = document.getElementById('shippingName').value.trim();
             const address = document.getElementById('shippingAddress').value.trim();
@@ -409,30 +438,43 @@
             btn.disabled = true;
 
             const shipping = document.querySelector('input[name="shipping"]:checked');
+
+            // Construir payload con mapeo flexible de campos
             const payload = {
                 user_id:          userId,
                 session_token:    sessionToken,
                 shipping_address: `${name}, ${address}, ${city} ${zip}`,
                 shipping_type:    shipping.value,
                 shipping_cost:    parseFloat(shipping.dataset.cost),
-                items:            cartItems.map(i => ({
-                    cart_id:    i.cart_id,
-                    product_id: i.product.id,
-                    qty:        i.qty,
-                    price:      parseFloat(i.product.price),
-                    vendor_id:  i.product.vendor_id,
-                })),
+                items:            cartItems.map(i => {
+                    const product = i.product || i;
+                    const qty = i.qty || i.quantity || 1;
+                    return {
+                        cart_id:    i.cart_id || i.id_carrito || null,
+                        product_id: product.id_producto || product.id,
+                        qty:        qty,
+                        price:      parseFloat(product.price || product.precio || 0),
+                        vendor_id: product.vendor_id || product.id_vendedor || product.vendedor?.id_usuario || userId,                    };
+                }),
                 card_last4: card.replace(/\s/g,'').slice(-4),
             };
 
+            console.log('Enviando payload:', payload);
+
             try {
-                const res  = await fetch('/api/orders', {
+                const res = await fetch('/api/orders', {
                     method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF,
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify(payload),
                 });
+
                 const data = await res.json();
+                console.log('Respuesta del servidor:', data);
 
                 if (res.ok && data.success) {
                     document.getElementById('successOrderId').textContent = `#${data.order_id.substring(0,8).toUpperCase()}`;
@@ -466,7 +508,8 @@
                     spinner.classList.add('d-none');
                     btn.disabled = false;
                 }
-            } catch {
+            } catch (e) {
+                console.error('Error:', e);
                 showBanner('Error de conexión con el servidor.', 'danger');
                 label.classList.remove('d-none');
                 spinner.classList.add('d-none');

@@ -9,7 +9,8 @@ use App\Models\DetalleOrden;
 use App\Models\Orden;
 use App\Models\Pago;
 use App\Models\Producto;
-use App\Models\SplitPago;
+use App\Models\Splitpago;
+use App\Models\Usuario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,97 +20,140 @@ class OrderController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        // Validación
         $validated = $request->validate([
-            'user_id'          => ['required', 'string', 'exists:usuarios,id_usuario'],
+            'user_id'          => ['required', 'string'],
+            'session_token'    => ['nullable', 'string'],
             'shipping_address' => ['required', 'string'],
             'shipping_type'    => ['required', 'in:standard,express'],
             'shipping_cost'    => ['required', 'numeric', 'min:0'],
             'items'            => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'string', 'exists:productos,id_producto'],
+            'items.*.product_id' => ['required', 'string'],
             'items.*.qty'        => ['required', 'integer', 'min:1'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
             'items.*.vendor_id'  => ['required', 'string'],
+            'items.*.cart_id'    => ['nullable', 'string'],
             'card_last4'       => ['nullable', 'string'],
         ]);
 
+        // Verificar que el usuario existe
+        $usuario = Usuario::find($validated['user_id']);
+        if (!$usuario) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuario no encontrado.',
+            ], 404);
+        }
+
+        DB::beginTransaction();
+
         try {
-            DB::beginTransaction();
-
-            $productosTotal = collect($validated['items'])
-                ->sum(fn ($i) => $i['price'] * $i['qty']);
-
-            $total = $productosTotal + $validated['shipping_cost'];
-
+            // 1. PRIMERO crear la orden
             $orderId = Str::uuid()->toString();
-            $pagoId  = Str::uuid()->toString();
 
-            $orden = Orden::create([
-                'id_orden'            => $orderId,
-                'id_comprador'        => $validated['user_id'],
-                'estado'              => 'pagado',
-                'total'               => $total,
-                'metodo_pago'         => 'tarjeta_simulada',
-                'direccion_envio'     => $validated['shipping_address'],
-                'id_transaccion_pago' => null,
-            ]);
+            \Log::info('Creando orden:', ['order_id' => $orderId, 'user_id' => $validated['user_id']]);
+
+            $orden = new Orden();
+            $orden->id_orden = $orderId;
+            $orden->id_comprador = $validated['user_id'];
+            $orden->estado = 'pagado';
+            $orden->total = 0; // Temporal, se actualizará después
+            $orden->metodo_pago = 'tarjeta_simulada';
+            $orden->direccion_envio = $validated['shipping_address'];
+            $orden->fecha_orden = now();
+            $orden->save();
+
+            \Log::info('Orden creada exitosamente:', ['order_id' => $orderId]);
+
+            // 2. Procesar items y crear detalles
+            $productosTotal = 0;
+            $vendorMap = [];
 
             foreach ($validated['items'] as $item) {
                 $producto = Producto::find($item['product_id']);
-                if (!$producto || $producto->stock < $item['qty']) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Stock insuficiente para: " . ($producto->nombre ?? $item['product_id']),
-                    ], 422);
+
+                if (!$producto) {
+                    throw new \Exception("Producto no encontrado: {$item['product_id']}");
                 }
 
-                DetalleOrden::create([
-                    'id_detalle'      => Str::uuid()->toString(),
-                    'id_orden'        => $orderId,
-                    'id_producto'     => $item['product_id'],
-                    'cantidad'        => $item['qty'],
-                    'precio_unitario' => $item['price'],
-                    'id_vendedor'     => $item['vendor_id'],
+                // Verificar stock
+                if ($producto->stock < $item['qty']) {
+                    throw new \Exception("Stock insuficiente para: {$producto->nombre}");
+                }
+
+                // Obtener vendor_id del producto (ignorar el que viene del frontend)
+                $vendorId = $producto->id_vendedor;
+                $precioTotal = $item['price'] * $item['qty'];
+                $productosTotal += $precioTotal;
+
+                // Acumular por vendedor
+                if (!isset($vendorMap[$vendorId])) {
+                    $vendorMap[$vendorId] = 0;
+                }
+                $vendorMap[$vendorId] += $precioTotal;
+
+                // Crear detalle de orden
+                $detalle = new DetalleOrden();
+                $detalle->id_detalle = Str::uuid()->toString();
+                $detalle->id_orden = $orderId;
+                $detalle->id_producto = $item['product_id'];
+                $detalle->cantidad = $item['qty'];
+                $detalle->precio_unitario = $item['price'];
+                $detalle->id_vendedor = $vendorId;
+                $detalle->save();
+
+                \Log::info('Detalle creado:', [
+                    'detalle_id' => $detalle->id_detalle,
+                    'orden_id' => $orderId,
+                    'producto_id' => $item['product_id']
                 ]);
 
+                // Actualizar stock
                 $producto->decrement('stock', $item['qty']);
             }
 
-            $pago = Pago::create([
-                'id_pago'            => $pagoId,
-                'id_orden'           => $orderId,
-                'monto'              => $total,
-                'metodo'             => 'tarjeta_simulada',
-                'referencia_externa' => 'SIM-' . strtoupper(Str::random(12)),
-                'estado'             => 'capturado',
-            ]);
+            // 3. Actualizar total de la orden
+            $total = $productosTotal + $validated['shipping_cost'];
+            $orden->total = $total;
+            $orden->save();
 
+            // 4. Crear pago
+            $pagoId = Str::uuid()->toString();
+            $pago = new Pago();
+            $pago->id_pago = $pagoId;
+            $pago->id_orden = $orderId;
+            $pago->monto = $total;
+            $pago->metodo = 'tarjeta_simulada';
+            $pago->referencia_externa = 'SIM-' . strtoupper(Str::random(12));
+            $pago->estado = 'capturado';
+            $pago->save();
+
+            // 5. Actualizar orden con ID del pago
             $orden->id_transaccion_pago = $pagoId;
             $orden->save();
 
-            $vendorMap = [];
-            foreach ($validated['items'] as $item) {
-                $vid = $item['vendor_id'];
-                if (!isset($vendorMap[$vid])) {
-                    $vendorMap[$vid] = 0;
-                }
-                $vendorMap[$vid] += $item['price'] * $item['qty'];
-            }
-
+            // 6. Crear splits de pago
             $splits = [];
             foreach ($vendorMap as $vid => $amount) {
-                $rate       = Comision::tasaParaCategoria(null) / 100;
-                $commission = round($amount * $rate, 2);
-                $net        = round($amount - $commission, 2);
+                // Obtener tasa de comisión
+                try {
+                    $rate = Comision::tasaParaCategoria(null) / 100;
+                } catch (\Exception $e) {
+                    $rate = 0.10; // 10% por defecto
+                }
 
-                SplitPago::create([
-                    'id_split'          => Str::uuid()->toString(),
-                    'id_pago'           => $pagoId,
-                    'id_vendedor'       => $vid,
-                    'monto_vendedor'    => $net,
-                    'monto_comision'    => $commission,
-                    'estado_liberacion' => 'pendiente',
-                ]);
+                $commission = round($amount * $rate, 2);
+                $net = round($amount - $commission, 2);
+
+                // Crear split
+                $split = new SplitPago();
+                $split->id_split = Str::uuid()->toString();
+                $split->id_pago = $pagoId;
+                $split->id_vendedor = $vid;
+                $split->monto_vendedor = $net;
+                $split->monto_comision = $commission;
+                $split->estado_liberacion = 'pendiente';
+                $split->save();
 
                 $splits[] = [
                     'vendor_id'  => $vid,
@@ -120,7 +164,13 @@ class OrderController extends Controller
                 ];
             }
 
-            $cartIds = collect($validated['items'])->pluck('cart_id')->filter()->values()->toArray();
+            // 7. Limpiar carrito
+            $cartIds = collect($validated['items'])
+                ->pluck('cart_id')
+                ->filter()
+                ->values()
+                ->toArray();
+
             if (!empty($cartIds)) {
                 Carrito::whereIn('id_carrito', $cartIds)->delete();
             } else {
@@ -129,6 +179,12 @@ class OrderController extends Controller
 
             DB::commit();
 
+            \Log::info('Orden completada exitosamente:', [
+                'order_id' => $orderId,
+                'total' => $total,
+                'items_count' => count($validated['items'])
+            ]);
+
             return response()->json([
                 'success'  => true,
                 'order_id' => $orderId,
@@ -136,8 +192,15 @@ class OrderController extends Controller
                 'splits'   => $splits,
             ], 201);
 
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
+
+            \Log::error('Error en orden:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $validated ?? []
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error procesando el pedido: ' . $e->getMessage(),
@@ -147,7 +210,11 @@ class OrderController extends Controller
 
     private function resolveSellerName(string $vendorId): string
     {
-        $user = \App\Models\Usuario::find($vendorId);
-        return $user ? $user->nombreComercial() : 'Vendedor';
+        try {
+            $user = Usuario::find($vendorId);
+            return $user ? $user->nombreComercial() : 'Vendedor';
+        } catch (\Exception $e) {
+            return 'Vendedor';
+        }
     }
 }
