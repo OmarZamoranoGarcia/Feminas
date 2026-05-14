@@ -23,13 +23,13 @@
             display: flex; align-items: center; justify-content: center;
             font-weight: 700;
         }
-        /* Hide auth nav items until /api/me resolves to avoid flash */
         .nav-auth { visibility: hidden; }
     </style>
 
+    {{-- Apply saved theme immediately to avoid flash --}}
     <script>
         (function() {
-            const t = localStorage.getItem('theme') || 'light';
+            var t = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-bs-theme', t);
         })();
     </script>
@@ -67,8 +67,10 @@
                         <span class="cart-badge d-none" id="cartBadge">0</span>
                     </button>
 
+                    {{-- Dark mode toggle: icon set correctly by JS below --}}
                     <button class="btn btn-ghost" id="darkModeToggle"
-                            style="cursor:pointer;font-size:1.2rem;border:none;background:none;padding:0.5rem;">☀️</button>
+                            style="cursor:pointer;font-size:1.2rem;border:none;background:none;padding:0.5rem;"
+                            aria-label="Cambiar tema"></button>
                 </div>
             </div>
         </div>
@@ -134,6 +136,25 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    (function () {
+        var html   = document.documentElement;
+        var toggle = document.getElementById('darkModeToggle');
+        if (!toggle) return;
+
+        function applyTheme(theme) {
+            html.setAttribute('data-bs-theme', theme);
+            localStorage.setItem('theme', theme);
+            toggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+        }
+
+        applyTheme(html.getAttribute('data-bs-theme') || 'light');
+
+        toggle.addEventListener('click', function () {
+            var next = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+            applyTheme(next);
+        });
+    })();
+
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
@@ -142,7 +163,9 @@
             const meRes  = await fetch('/api/me', { credentials: 'same-origin' });
             const meData = await meRes.json();
             if (meData.success) currentUser = meData.user;
-        } catch { /* treat as logged out */ }
+        } catch (err) {
+            console.warn('Could not reach /api/me:', err.message);
+        }
 
         const loginNavItem    = document.getElementById('loginNavItem');
         const registerNavItem = document.getElementById('registerNavItem');
@@ -151,26 +174,21 @@
         const logoutNavItem   = document.getElementById('logoutNavItem');
 
         if (currentUser) {
-            // Hide guest items
             loginNavItem.classList.add('d-none');
             registerNavItem.classList.add('d-none');
 
-            // Show logout + greeting for everyone
             logoutNavItem.classList.remove('d-none');
             userGreeting.textContent = `Hola, ${currentUser.name}`;
             userGreeting.classList.remove('d-none');
 
-            // Panel link only for vendor/admin
             if (currentUser.tipo === 'vendedor' || currentUser.tipo === 'admin') {
                 adminNavItem.classList.remove('d-none');
             }
 
-            // Sync non-sensitive info to localStorage for other pages
             localStorage.setItem('vendorId', currentUser.vendor_id ?? '');
             localStorage.setItem('userTipo', currentUser.tipo);
         }
 
-        // Reveal nav now that state is known (was hidden to avoid flash)
         document.querySelector('.nav-auth').style.visibility = 'visible';
 
         logoutNavItem?.addEventListener('click', async () => {
@@ -183,15 +201,11 @@
                     credentials: 'same-origin',
                     headers: { 'X-CSRF-TOKEN': CSRF },
                 });
-                // Wait for the server to confirm before navigating
                 await res.json();
-            } catch { /* best-effort; navigate anyway */ }
+            } catch { /* best-effort */ }
 
-            // Clear local state
             localStorage.removeItem('vendorId');
             localStorage.removeItem('userTipo');
-
-            // Hard redirect instead of reload so the new session cookie is sent fresh
             window.location.href = "{{ route('home') }}";
         });
 
@@ -199,7 +213,14 @@
 
         let sessionToken = localStorage.getItem('sessionToken');
         if (!sessionToken) {
-            sessionToken = crypto.randomUUID();
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                sessionToken = crypto.randomUUID();
+            } else {
+                sessionToken = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+            }
             localStorage.setItem('sessionToken', sessionToken);
         }
 
@@ -221,8 +242,18 @@
         const cartList    = document.getElementById('cartList');
         const cartTotalEl = document.getElementById('cartTotal');
         const checkoutBtn = document.getElementById('checkoutBtn');
-        const toast       = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
         const toastMsg    = document.getElementById('toastMsg');
+
+        function showToast(msg) {
+            try {
+                toastMsg.textContent = msg;
+                bootstrap.Toast.getOrCreateInstance(
+                    document.getElementById('cartToast'), { delay: 2200 }
+                ).show();
+            } catch (e) {
+                console.warn('Toast error:', e);
+            }
+        }
 
         let currentCategory = '';
 
@@ -232,9 +263,14 @@
             try {
                 const url = `/api/products?search=${encodeURIComponent(searchInput.value)}&category=${encodeURIComponent(currentCategory)}`;
                 const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 renderProducts(await res.json());
-            } catch {
-                productGrid.innerHTML = '<div class="col-12 text-center text-danger">Error cargando productos.</div>';
+            } catch (err) {
+                productGrid.innerHTML = `<div class="col-12 text-center text-danger py-4">
+                    <i class="bi bi-exclamation-triangle fs-2 d-block mb-2"></i>
+                    Error cargando productos: ${err.message}<br>
+                    <small class="text-muted">Comprueba que el servidor esté corriendo en <code>http://localhost:8000</code></small>
+                </div>`;
             }
             loader.classList.add('d-none');
         }
@@ -297,8 +333,7 @@
                 });
 
                 if (res.ok) {
-                    toastMsg.textContent = `"${productName}" añadido al carrito`;
-                    toast.show();
+                    showToast(`"${productName}" añadido al carrito`);
                     await loadCart();
                 } else {
                     const err = await res.json();
@@ -368,7 +403,6 @@
             `).join('');
         }
 
-        // Remove from cart
         document.getElementById('cartList').addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-remove-cart');
             if (!btn) return;
@@ -396,14 +430,6 @@
                 currentCategory = btn.dataset.category;
                 fetchProducts();
             });
-        });
-
-        document.getElementById('darkModeToggle')?.addEventListener('click', function () {
-            const html     = document.documentElement;
-            const newTheme = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-bs-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            this.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         });
 
         fetchProducts();
