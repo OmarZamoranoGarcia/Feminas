@@ -23,7 +23,7 @@
             display: flex; align-items: center; justify-content: center;
             font-weight: 700;
         }
-        /* Hide auth nav items until /api/me resolves */
+        /* Hide auth nav items until /api/me resolves to avoid flash */
         .nav-auth { visibility: hidden; }
     </style>
 
@@ -45,12 +45,17 @@
                 <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions nav-auth">
                     <a class="nav-link" href="{{ route('home') }}">Inicio</a>
 
-                    {{-- Shown when logged OUT --}}
+                    {{-- Logged OUT --}}
                     <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
                     <a id="loginNavItem"    class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
 
-                    {{-- Shown when logged IN --}}
-                    <a id="userNavItem"     class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">Mi Panel</a>
+                    {{-- Logged IN: vendor or admin only --}}
+                    <a id="adminNavItem" class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">
+                        <i class="bi bi-grid me-1"></i>Mi Panel
+                    </a>
+
+                    {{-- Logged IN: shown for all authenticated users --}}
+                    <span id="userGreeting" class="text-muted small d-none"></span>
                     <button class="btn btn-outline-danger btn-sm d-none" id="logoutNavItem" type="button">
                         <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
                     </button>
@@ -133,38 +138,64 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        // Determine auth state from the SERVER
-        let currentUser = null; // will hold user object if logged in
-
+        let currentUser = null;
         try {
             const meRes  = await fetch('/api/me', { credentials: 'same-origin' });
             const meData = await meRes.json();
-            if (meData.success) {
-                currentUser = meData.user;
-                // Keep vendorId in localStorage only so cart/admin pages can use it
-                localStorage.setItem('vendorId', currentUser.vendor_id ?? '');
-                localStorage.setItem('userTipo', currentUser.tipo);
-            }
-        } catch { /* server unreachable, treat as logged out */ }
+            if (meData.success) currentUser = meData.user;
+        } catch { /* treat as logged out */ }
 
-        // Update nav UI based on server response
         const loginNavItem    = document.getElementById('loginNavItem');
         const registerNavItem = document.getElementById('registerNavItem');
-        const userNavItem     = document.getElementById('userNavItem');
+        const adminNavItem    = document.getElementById('adminNavItem');
+        const userGreeting    = document.getElementById('userGreeting');
         const logoutNavItem   = document.getElementById('logoutNavItem');
 
         if (currentUser) {
+            // Hide guest items
             loginNavItem.classList.add('d-none');
             registerNavItem.classList.add('d-none');
-            userNavItem.classList.remove('d-none');
+
+            // Show logout + greeting for everyone
             logoutNavItem.classList.remove('d-none');
+            userGreeting.textContent = `Hola, ${currentUser.name}`;
+            userGreeting.classList.remove('d-none');
+
+            // Panel link only for vendor/admin
+            if (currentUser.tipo === 'vendedor' || currentUser.tipo === 'admin') {
+                adminNavItem.classList.remove('d-none');
+            }
+
+            // Sync non-sensitive info to localStorage for other pages
+            localStorage.setItem('vendorId', currentUser.vendor_id ?? '');
+            localStorage.setItem('userTipo', currentUser.tipo);
         }
-        // Reveal nav now that we know the state (was hidden to avoid flash)
+
+        // Reveal nav now that state is known (was hidden to avoid flash)
         document.querySelector('.nav-auth').style.visibility = 'visible';
 
-        // Cart identity
-        // Logged-in users: identify by user_id (from server)
-        // Anonymous users: identify by a session token stored in localStorage
+        logoutNavItem?.addEventListener('click', async () => {
+            logoutNavItem.disabled = true;
+            logoutNavItem.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saliendo...';
+
+            try {
+                const res = await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                });
+                // Wait for the server to confirm before navigating
+                await res.json();
+            } catch { /* best-effort; navigate anyway */ }
+
+            // Clear local state
+            localStorage.removeItem('vendorId');
+            localStorage.removeItem('userTipo');
+
+            // Hard redirect instead of reload so the new session cookie is sent fresh
+            window.location.href = "{{ route('home') }}";
+        });
+
         const userId = currentUser ? currentUser.id : null;
 
         let sessionToken = localStorage.getItem('sessionToken');
@@ -179,37 +210,20 @@
                 : `session_token=${encodeURIComponent(sessionToken)}`;
         }
         function cartBody(extra = {}) {
-            const base = userId
-                ? { user_id: userId }
-                : { session_token: sessionToken };
+            const base = userId ? { user_id: userId } : { session_token: sessionToken };
             return { ...base, ...extra };
         }
 
-        // Logout
-        logoutNavItem?.addEventListener('click', async () => {
-            try {
-                await fetch('/api/logout', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'X-CSRF-TOKEN': CSRF },
-                });
-            } catch { /* ignore */ }
-            localStorage.removeItem('vendorId');
-            localStorage.removeItem('userTipo');
-            window.location.reload();
-        });
-
-        // Products
-        const productGrid   = document.getElementById('productGrid');
-        const searchInput   = document.getElementById('searchInput');
-        const btnSearch     = document.getElementById('btnSearch');
-        const loader        = document.getElementById('loader');
-        const cartBadge     = document.getElementById('cartBadge');
-        const cartList      = document.getElementById('cartList');
-        const cartTotalEl   = document.getElementById('cartTotal');
-        const checkoutBtn   = document.getElementById('checkoutBtn');
-        const toast         = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
-        const toastMsg      = document.getElementById('toastMsg');
+        const productGrid = document.getElementById('productGrid');
+        const searchInput = document.getElementById('searchInput');
+        const btnSearch   = document.getElementById('btnSearch');
+        const loader      = document.getElementById('loader');
+        const cartBadge   = document.getElementById('cartBadge');
+        const cartList    = document.getElementById('cartList');
+        const cartTotalEl = document.getElementById('cartTotal');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        const toast       = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
+        const toastMsg    = document.getElementById('toastMsg');
 
         let currentCategory = '';
 
@@ -219,8 +233,7 @@
             try {
                 const url = `/api/products?search=${encodeURIComponent(searchInput.value)}&category=${encodeURIComponent(currentCategory)}`;
                 const res = await fetch(url);
-                const products = await res.json();
-                renderProducts(products);
+                renderProducts(await res.json());
             } catch {
                 productGrid.innerHTML = '<div class="col-12 text-center text-danger">Error cargando productos.</div>';
             }
@@ -232,6 +245,10 @@
                 productGrid.innerHTML = '<div class="col-12 text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No se encontraron productos.</div>';
                 return;
             }
+
+            const canManage = currentUser &&
+                (currentUser.tipo === 'vendedor' || currentUser.tipo === 'admin');
+
             productGrid.innerHTML = products.map(p => `
                 <div class="col-md-4">
                     <div class="feature-card h-100 d-flex flex-column">
@@ -239,26 +256,30 @@
                         <p class="text-muted small mb-1 text-uppercase fw-semibold">${p.category}</p>
                         <h4 class="h5 fw-bold flex-grow-1">${p.name}</h4>
                         <p class="text-muted small mb-2">${p.seller}</p>
-                        <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top">
+                        <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top gap-2">
                             <span class="fw-bold fs-5">$${p.price}</span>
-                            <button
-                                class="btn btn-sm btn-primary btn-add-cart"
-                                data-product-id="${p.id}"
-                                data-product-name="${p.name}"
-                                data-product-price="${p.price}"
-                                ${p.stock === 0 ? 'disabled' : ''}
-                            >
-                                ${p.stock === 0
-                                    ? '<i class="bi bi-x-circle me-1"></i>Agotado'
-                                    : '<i class="bi bi-cart-plus me-1"></i>Añadir'}
-                            </button>
+                            <div class="d-flex gap-1">
+                                ${canManage ? `
+                                    <a href="{{ route('admin') }}" class="btn btn-sm btn-outline-secondary" title="Gestionar en panel">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>` : ''}
+                                <button
+                                    class="btn btn-sm btn-primary btn-add-cart"
+                                    data-product-id="${p.id}"
+                                    data-product-name="${p.name}"
+                                    ${p.stock === 0 ? 'disabled' : ''}
+                                >
+                                    ${p.stock === 0
+                                        ? '<i class="bi bi-x-circle me-1"></i>Agotado'
+                                        : '<i class="bi bi-cart-plus me-1"></i>Añadir'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Add to cart
         productGrid.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-add-cart');
             if (!btn) return;
@@ -292,7 +313,6 @@
             btn.innerHTML = '<i class="bi bi-cart-plus me-1"></i>Añadir';
         });
 
-        // Load & render cart
         async function loadCart() {
             try {
                 const res   = await fetch(`/api/cart?${cartParams()}`, { credentials: 'same-origin' });
@@ -367,7 +387,6 @@
             }
         });
 
-        // Search & filter
         btnSearch.addEventListener('click', fetchProducts);
         searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchProducts(); });
 
@@ -380,7 +399,6 @@
             });
         });
 
-        // Dark mode
         document.getElementById('darkModeToggle')?.addEventListener('click', function () {
             const html     = document.documentElement;
             const newTheme = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
@@ -389,7 +407,6 @@
             this.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         });
 
-        // Init
         fetchProducts();
         loadCart();
     });

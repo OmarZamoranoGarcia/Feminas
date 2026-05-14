@@ -11,9 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-
     // POST /api/login
-
     public function login(Request $request): JsonResponse
     {
         try {
@@ -47,20 +45,16 @@ class AuthController extends Controller
         ]);
     }
 
-
     // POST /api/logout
-
     public function logout(Request $request): JsonResponse
     {
-        $request->session()->forget('user_id');
-        $request->session()->regenerate();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json(['success' => true, 'message' => 'Sesión cerrada.']);
     }
 
-
     // GET /api/me
-
     public function me(Request $request): JsonResponse
     {
         $userId = $request->session()->get('user_id');
@@ -72,7 +66,7 @@ class AuthController extends Controller
         $usuario = Usuario::find($userId);
 
         if (!$usuario) {
-            $request->session()->forget('user_id');
+            $request->session()->invalidate();
             return response()->json(['success' => false, 'message' => 'Usuario no encontrado.'], 401);
         }
 
