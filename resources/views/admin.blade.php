@@ -2,7 +2,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admin - DevMart</title>
+    <title>Mi Panel - DevMart</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -66,7 +66,6 @@
         }
         .btn-gradient:hover { opacity: .9; color: white; transform: translateY(-2px); }
         .modal-content { border-radius: 1.25rem; border: none; box-shadow: 0 20px 50px rgba(0,0,0,.15); }
-        /* Hide auth-dependent elements until /api/me resolves */
         .auth-dependent { visibility: hidden; }
     </style>
 
@@ -104,7 +103,7 @@
 
     <div class="container my-5 admin-container">
 
-        <!-- Not logged in warning -->
+        {{-- Only shown when not logged in --}}
         <div id="notLoggedAlert" class="alert alert-warning shadow-sm rounded-4 border-0" role="alert" style="display: none;">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             Debes iniciar sesión para administrar tus productos.
@@ -112,27 +111,19 @@
             <a href="{{ route('register') }}" class="alert-link">registrarte</a>.
         </div>
 
-        <!-- Not authorized warning (logged in but not vendor/admin) -->
-        <div id="notAuthorizedAlert" class="alert alert-danger shadow-sm rounded-4 border-0" role="alert" style="display: none;">
-            <i class="bi bi-shield-exclamation me-2"></i>
-            No tienes permisos para acceder a este panel. Solo vendedores y administradores pueden gestionar productos.
-            <a href="{{ route('home') }}" class="alert-link">Volver al inicio</a>
-        </div>
-
         <div class="admin-card" id="adminCard" style="display: none;">
             <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
                 <div>
                     <h1 class="mb-1 h3 fw-bold">
-                        <i class="bi bi-grid-1x2 me-2 text-primary"></i>Gestión de Productos
+                        <i class="bi bi-grid-1x2 me-2 text-primary"></i>Mis Productos
                     </h1>
-                    <p class="text-secondary mb-0">Crea, edita o elimina tus productos directamente desde tu panel.</p>
+                    <p class="text-secondary mb-0" id="panelSubtitle">Crea, edita o elimina tus productos.</p>
                 </div>
                 <button class="btn btn-gradient rounded-pill px-4 shadow-sm" id="newProductButton">
                     <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
                 </button>
             </div>
 
-            <!-- Feedback banner -->
             <div id="feedbackBanner" class="alert d-none mb-3 rounded-3" role="alert"></div>
 
             <div class="table-responsive shadow-sm">
@@ -257,7 +248,6 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        // ── 1. Check session with /api/me ──────────────────────────────────────
         let currentUser = null;
         try {
             const res  = await fetch('/api/me', { credentials: 'same-origin' });
@@ -265,47 +255,35 @@
             if (data.success) currentUser = data.user;
         } catch { /* server unreachable */ }
 
-        const notLoggedAlert    = document.getElementById('notLoggedAlert');
-        const notAuthorizedAlert = document.getElementById('notAuthorizedAlert');
-        const adminCard         = document.getElementById('adminCard');
-        const productTableBody  = document.getElementById('productTableBody');
-        const authDependent     = document.querySelector('.auth-dependent');
+        const notLoggedAlert = document.getElementById('notLoggedAlert');
+        const adminCard      = document.getElementById('adminCard');
+        const authDependent  = document.querySelector('.auth-dependent');
 
-        // Reveal auth-dependent UI now that we know the state
         if (authDependent) authDependent.style.visibility = 'visible';
 
-        // ── Handle not logged in ──────────────────────────────────────────────
         if (!currentUser) {
             notLoggedAlert.style.display = 'block';
-            productTableBody.innerHTML = `
+            document.getElementById('productTableBody').innerHTML = `
                 <tr><td colspan="7" class="text-center text-muted py-5">
                     <i class="bi bi-lock fs-2 d-block mb-2"></i>
                     Inicia sesión para administrar productos.
                 </td></tr>`;
-            return; // stop here
+            return;
         }
 
-        // ── Handle not authorized (not vendor/admin) ──────────────────────────
-        if (currentUser.tipo !== 'vendedor' && currentUser.tipo !== 'admin') {
-            notAuthorizedAlert.style.display = 'block';
-            productTableBody.innerHTML = `
-                <tr><td colspan="7" class="text-center text-muted py-5">
-                    <i class="bi bi-shield-lock fs-2 d-block mb-2"></i>
-                    No tienes permisos para gestionar productos.
-                </td></tr>`;
-            return; // stop here
-        }
-
-        // ── 2. User is authenticated AND authorized ───────────────────────────
         adminCard.style.display = 'block';
+
+        if (currentUser.razon_social) {
+            document.getElementById('panelSubtitle').textContent =
+                `Gestionando productos de "${currentUser.razon_social}"`;
+        }
+
         const vendorId = currentUser.vendor_id ?? currentUser.id;
 
-        // Logout
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             const btn = document.getElementById('logoutBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saliendo...';
-
             try {
                 await fetch('/api/logout', {
                     method: 'POST',
@@ -313,20 +291,12 @@
                     headers: { 'X-CSRF-TOKEN': CSRF },
                 });
             } catch { /* ignore */ }
-
-            // Hard redirect to get fresh session state
             window.location.href = "{{ route('home') }}";
         });
 
-        // ── 3. UI refs ─────────────────────────────────────────────────────────
         const feedbackBanner    = document.getElementById('feedbackBanner');
-        let productModal, deleteModal;
-        try {
-            productModal = new bootstrap.Modal(document.getElementById('productModal'));
-            deleteModal  = new bootstrap.Modal(document.getElementById('deleteModal'));
-        } catch (e) {
-            console.error('Error initializing modals:', e);
-        }
+        const productModal      = new bootstrap.Modal(document.getElementById('productModal'));
+        const deleteModal       = new bootstrap.Modal(document.getElementById('deleteModal'));
         const saveProductButton = document.getElementById('saveProductButton');
         const saveBtnLabel      = document.getElementById('saveBtnLabel');
         const saveBtnSpinner    = document.getElementById('saveBtnSpinner');
@@ -334,6 +304,7 @@
         const deleteBtnLabel    = document.getElementById('deleteBtnLabel');
         const deleteBtnSpinner  = document.getElementById('deleteBtnSpinner');
         const deleteProductName = document.getElementById('deleteProductName');
+        const productTableBody  = document.getElementById('productTableBody');
 
         const productIdInput     = document.getElementById('productId');
         const productNameInput   = document.getElementById('productName');
@@ -346,7 +317,6 @@
         let pendingDeleteId   = null;
         let pendingDeleteName = '';
 
-        // ── 4. Helpers ─────────────────────────────────────────────────────────
         function showBanner(msg, type = 'success') {
             feedbackBanner.className = `alert alert-${type} rounded-3`;
             feedbackBanner.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>${msg}`;
@@ -371,7 +341,6 @@
             saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
         }
 
-        // ── 5. Load products ───────────────────────────────────────────────────
         async function fetchProducts() {
             productTableBody.innerHTML = `
                 <tr><td colspan="7" class="text-center text-primary py-5 fw-bold">
@@ -394,8 +363,13 @@
                 productTableBody.innerHTML = `
                     <tr><td colspan="7" class="text-center text-muted py-5">
                         <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                        No tienes productos publicados todavía.
+                        No tienes productos publicados todavía.<br>
+                        <button class="btn btn-primary btn-sm mt-3" id="emptyStateNewBtn">
+                            <i class="bi bi-plus-lg me-1"></i>Publicar mi primer producto
+                        </button>
                     </td></tr>`;
+                document.getElementById('emptyStateNewBtn')
+                    ?.addEventListener('click', () => { resetForm(); productModal.show(); });
                 return;
             }
             productTableBody.innerHTML = products.map(p => `
@@ -436,13 +410,11 @@
             `).join('');
         }
 
-        // ── 6. New product button ──────────────────────────────────────────────
         document.getElementById('newProductButton').addEventListener('click', () => {
             resetForm();
-            if (productModal) productModal.show();
+            productModal.show();
         });
 
-        // ── 7. Table actions (edit / delete) ───────────────────────────────────
         productTableBody.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
@@ -457,18 +429,17 @@
                 productStatusInput.value = btn.dataset.status;
                 document.getElementById('productModalLabel').textContent = 'Editar producto';
                 saveBtnLabel.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Actualizar producto';
-                if (productModal) productModal.show();
+                productModal.show();
             }
 
             if (btn.dataset.action === 'delete') {
                 pendingDeleteId   = btn.dataset.id;
                 pendingDeleteName = btn.dataset.name;
                 deleteProductName.textContent = pendingDeleteName;
-                if (deleteModal) deleteModal.show();
+                deleteModal.show();
             }
         });
 
-        // ── 8. Save product ────────────────────────────────────────────────────
         saveProductButton.addEventListener('click', async () => {
             if (!productNameInput.value.trim() || !productPriceInput.value || !productStockInput.value) {
                 showBanner('Por favor completa los campos obligatorios.', 'warning');
@@ -503,7 +474,7 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    if (productModal) productModal.hide();
+                    productModal.hide();
                     showBanner(existingId ? 'Producto actualizado correctamente.' : 'Producto creado correctamente.');
                     await fetchProducts();
                 } else {
@@ -518,7 +489,6 @@
             saveProductButton.disabled = false;
         });
 
-        // ── 9. Confirm delete ──────────────────────────────────────────────────
         confirmDeleteBtn.addEventListener('click', async () => {
             if (!pendingDeleteId) return;
 
@@ -534,7 +504,7 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    if (deleteModal) deleteModal.hide();
+                    deleteModal.hide();
                     showBanner(`"${pendingDeleteName}" eliminado correctamente.`);
                     await fetchProducts();
                 } else {
@@ -550,7 +520,6 @@
             pendingDeleteId = null;
         });
 
-        // ── 10. Dark mode ──────────────────────────────────────────────────────
         const toggleButton = document.getElementById('darkModeToggle');
         const html = document.documentElement;
         toggleButton.innerHTML = html.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
@@ -561,7 +530,6 @@
             toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
         });
 
-        // ── Init ───────────────────────────────────────────────────────────────
         fetchProducts();
     });
     </script>

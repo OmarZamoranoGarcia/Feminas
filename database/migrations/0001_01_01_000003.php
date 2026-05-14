@@ -8,26 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 2. VENDEDORES (extends usuarios)
-        Schema::create('vendedores', function (Blueprint $table) {
-            $table->uuid('id_vendedor')->primary();
-            $table->string('razon_social', 200);
-            $table->string('rfc', 13)->unique()->nullable();
-            $table->text('descripcion')->nullable();
-            $table->decimal('calificacion_promedio', 2, 1)->default(0.0);
-            $table->text('politicas_devolucion')->nullable();
-            $table->string('banco_cuenta', 100)->nullable();
-
-            $table->foreign('id_vendedor')
-                  ->references('id_usuario')
-                  ->on('usuarios')
-                  ->onDelete('cascade');
-
-            $table->index('rfc');
-            $table->index('calificacion_promedio');
-        });
-
-        // 3. PRODUCTOS
         Schema::create('productos', function (Blueprint $table) {
             $table->uuid('id_producto')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_vendedor');
@@ -41,8 +21,8 @@ return new class extends Migration
             $table->timestamp('fecha_creacion')->useCurrent();
 
             $table->foreign('id_vendedor')
-                  ->references('id_vendedor')
-                  ->on('vendedores')
+                  ->references('id_usuario')
+                  ->on('usuarios')
                   ->onDelete('cascade');
 
             $table->index('id_vendedor');
@@ -51,7 +31,6 @@ return new class extends Migration
             $table->index('precio');
         });
 
-        // 4. CARRITO
         Schema::create('carrito', function (Blueprint $table) {
             $table->uuid('id_carrito')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_usuario')->nullable();
@@ -79,6 +58,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('carrito');
         Schema::dropIfExists('productos');
-        Schema::dropIfExists('vendedores');
     }
 };

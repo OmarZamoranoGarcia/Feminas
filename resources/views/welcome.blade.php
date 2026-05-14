@@ -48,12 +48,11 @@
                     <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
                     <a id="loginNavItem"    class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
 
-                    {{-- Logged IN: vendor or admin only --}}
+                    {{-- Logged IN: shown for ALL authenticated users --}}
                     <a id="adminNavItem" class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">
                         <i class="bi bi-grid me-1"></i>Mi Panel
                     </a>
 
-                    {{-- Logged IN: shown for all authenticated users --}}
                     <span id="userGreeting" class="text-muted small d-none"></span>
                     <button class="btn btn-outline-danger btn-sm d-none" id="logoutNavItem" type="button">
                         <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
@@ -67,7 +66,6 @@
                         <span class="cart-badge d-none" id="cartBadge">0</span>
                     </button>
 
-                    {{-- Dark mode toggle --}}
                     <button class="btn btn-ghost" id="darkModeToggle"
                             style="cursor:pointer;font-size:1.2rem;border:none;background:none;padding:0.5rem;"
                             aria-label="Cambiar tema"></button>
@@ -83,7 +81,14 @@
                 <p class="lead mb-5">DevMart es el marketplace definitivo para ti. Descubre una gran variedad de productos.</p>
                 <div class="hero-cta-group justify-content-center">
                     <a href="#productSection" class="btn btn-primary btn-lg">Explorar Productos</a>
-                    <a href="{{ route('register') }}" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
+                    {{--
+                        "Vender en DevMart" href is set by JS:
+                        - logged in  → /admin
+                        - logged out → /register
+                    --}}
+                    <a id="sellCta" href="{{ route('register') }}" class="btn btn-outline-secondary btn-lg">
+                        Vender en DevMart
+                    </a>
                 </div>
             </div>
         </div>
@@ -158,7 +163,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        // ── 1. Auth check ──────────────────────────────────────────────────────
+        // ── Auth check ────────────────────────────────────────────────────────
         let currentUser = null;
         try {
             const meRes  = await fetch('/api/me', { credentials: 'same-origin' });
@@ -173,20 +178,22 @@
         const adminNavItem    = document.getElementById('adminNavItem');
         const userGreeting    = document.getElementById('userGreeting');
         const logoutNavItem   = document.getElementById('logoutNavItem');
+        const sellCta         = document.getElementById('sellCta');
 
         if (currentUser) {
             loginNavItem.classList.add('d-none');
             registerNavItem.classList.add('d-none');
+
+            adminNavItem.classList.remove('d-none');
+
             logoutNavItem.classList.remove('d-none');
             userGreeting.textContent = `Hola, ${currentUser.name}`;
             userGreeting.classList.remove('d-none');
 
-            if (currentUser.tipo === 'vendedor' || currentUser.tipo === 'admin') {
-                adminNavItem.classList.remove('d-none');
-            }
+            sellCta.href        = "{{ route('admin') }}";
+            sellCta.textContent = 'Ir a Mi Panel';
 
-            localStorage.setItem('vendorId', currentUser.vendor_id ?? '');
-            localStorage.setItem('userTipo', currentUser.tipo);
+            localStorage.setItem('vendorId', currentUser.vendor_id ?? currentUser.id);
         }
 
         document.querySelector('.nav-auth').style.visibility = 'visible';
@@ -202,7 +209,6 @@
                 });
             } catch { /* best-effort */ }
             localStorage.removeItem('vendorId');
-            localStorage.removeItem('userTipo');
             window.location.href = "{{ route('home') }}";
         });
 
@@ -278,9 +284,6 @@
                 return;
             }
 
-            const canManage = currentUser &&
-                (currentUser.tipo === 'vendedor' || currentUser.tipo === 'admin');
-
             productGrid.innerHTML = products.map(p => `
                 <div class="col-md-4">
                     <div class="feature-card h-100 d-flex flex-column">
@@ -291,7 +294,7 @@
                         <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top gap-2">
                             <span class="fw-bold fs-5">$${p.price}</span>
                             <div class="d-flex gap-1">
-                                ${canManage ? `
+                                ${currentUser ? `
                                     <a href="{{ route('admin') }}" class="btn btn-sm btn-outline-secondary" title="Gestionar en panel">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>` : ''}
@@ -312,6 +315,7 @@
             `).join('');
         }
 
+        // ── Add to cart ───────────────────────────────────────────────────────
         productGrid.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-add-cart');
             if (!btn) return;
@@ -344,7 +348,7 @@
             btn.innerHTML = '<i class="bi bi-cart-plus me-1"></i>Añadir';
         });
 
-        // ── 5. Cart (exposed globally so cart-drawer can trigger a reload) ─────
+        // ── Cart ──────────────────────────────────────────────────────────────
         async function loadCart() {
             try {
                 const res   = await fetch(`/api/cart?${window.cartParams()}`, { credentials: 'same-origin' });
@@ -364,9 +368,48 @@
             const count = items.reduce((s, i) => s + i.qty, 0);
             cartBadge.textContent = count;
             cartBadge.classList.toggle('d-none', count === 0);
+            cartTotalEl.textContent = '$' + total.toFixed(2);
+            checkoutBtn.disabled = count === 0;
+
+            if (!items.length) {
+                cartList.innerHTML = '<li class="list-group-item text-center text-muted py-4"><i class="bi bi-cart-x fs-2 d-block mb-1"></i>Tu carrito está vacío</li>';
+                return;
+            }
+
+            cartList.innerHTML = items.map(item => `
+                <li class="list-group-item px-0 d-flex align-items-center gap-2">
+                    <img src="${item.product.img}" width="46" height="46"
+                         style="object-fit:cover;border-radius:.4rem" alt="${item.product.name}">
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-truncate">${item.product.name}</div>
+                        <small class="text-muted">×${item.qty} — $${(parseFloat(item.product.price) * item.qty).toFixed(2)}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger btn-remove-cart flex-shrink-0"
+                            data-cart-id="${item.cart_id}" title="Eliminar">
+                        <i class="bi bi-trash pointer-events-none"></i>
+                    </button>
+                </li>
+            `).join('');
         }
 
-        // ── 6. Search & filters ────────────────────────────────────────────────
+        document.getElementById('cartList').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-remove-cart');
+            if (!btn) return;
+            btn.disabled = true;
+            try {
+                const res = await fetch(`/api/cart/${btn.dataset.cartId}?${cartParams()}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                });
+                if (res.ok) await loadCart();
+            } catch {
+                alert('Error al eliminar del carrito.');
+                btn.disabled = false;
+            }
+        });
+
+        // ── Search & filters ──────────────────────────────────────────────────
         btnSearch.addEventListener('click', fetchProducts);
         searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchProducts(); });
 
@@ -379,7 +422,7 @@
             });
         });
 
-        // ── Init ───────────────────────────────────────────────────────────────
+        // ── Init ──────────────────────────────────────────────────────────────
         fetchProducts();
         loadCart();
     });

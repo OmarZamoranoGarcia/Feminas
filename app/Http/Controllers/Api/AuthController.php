@@ -79,11 +79,15 @@ class AuthController extends Controller
     private function userPayload(Usuario $u): array
     {
         return [
-            'id'        => $u->id_usuario,
-            'name'      => $u->nombre,
-            'email'     => $u->email,
-            'tipo'      => $u->tipo,
-            'vendor_id' => $u->tipo === 'vendedor' ? $u->id_usuario : null,
+            'id'                    => $u->id_usuario,
+            'name'                  => $u->nombre,
+            'email'                 => $u->email,
+            // Every user is both buyer and seller; is_admin flags elevated access
+            'is_admin'              => $u->esAdmin(),
+            // vendor_id is always the user's own id
+            'vendor_id'             => $u->id_usuario,
+            'razon_social'          => $u->razon_social,
+            'calificacion_promedio' => $u->calificacion_promedio,
         ];
     }
 }

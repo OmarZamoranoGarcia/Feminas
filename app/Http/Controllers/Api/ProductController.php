@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Producto;
-use App\Models\Vendedor;
+use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -18,7 +18,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Producto::activo()
-            ->with('vendedor:id_vendedor,razon_social');
+            ->with('vendedor:id_usuario,nombre,razon_social,calificacion_promedio');
 
         // Full-text search
         if ($search = $request->query('search')) {
@@ -47,9 +47,9 @@ class ProductController extends Controller
         return response()->json($productos);
     }
 
-
-    // GET /api/products/{id}
-
+    /**
+     * GET /api/products/{id}
+     */
     public function show(string $id): JsonResponse
     {
         $producto = Producto::activo()
@@ -57,32 +57,32 @@ class ProductController extends Controller
             ->findOrFail($id);
 
         return response()->json([
-            'id'          => $producto->id_producto,
-            'name'        => $producto->nombre,
-            'desc'        => $producto->descripcion,
-            'price'       => number_format((float) $producto->precio, 2),
-            'stock'       => $producto->stock,
-            'category'    => $producto->categoria,
-            'img'         => $producto->imagen_url,
-            'seller'      => $producto->vendedor?->razon_social,
-            'vendor_id'   => $producto->id_vendedor,
-            'rating'      => $producto->vendedor?->calificacion_promedio,
-            'reviews'     => $producto->resenas->map(fn ($r) => [
-                'score'    => $r->calificacion,
-                'comment'  => $r->comentario,
-                'buyer'    => $r->comprador?->nombre,
-                'date'     => $r->fecha?->toDateString(),
+            'id'        => $producto->id_producto,
+            'name'      => $producto->nombre,
+            'desc'      => $producto->descripcion,
+            'price'     => number_format((float) $producto->precio, 2),
+            'stock'     => $producto->stock,
+            'category'  => $producto->categoria,
+            'img'       => $producto->imagen_url,
+            'seller'    => $producto->vendedor?->nombreComercial(),
+            'vendor_id' => $producto->id_vendedor,
+            'rating'    => $producto->vendedor?->calificacion_promedio,
+            'reviews'   => $producto->resenas->map(fn ($r) => [
+                'score'   => $r->calificacion,
+                'comment' => $r->comentario,
+                'buyer'   => $r->comprador?->nombre,
+                'date'    => $r->fecha?->toDateString(),
             ]),
         ]);
     }
 
-
-    // POST /api/products
-
+    /**
+     * POST /api/products
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'vendor_id'   => ['required', 'string', 'exists:vendedores,id_vendedor'],
+            'vendor_id'   => ['required', 'string', 'exists:usuarios,id_usuario'],
             'name'        => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string'],
             'price'       => ['required', 'numeric', 'min:0'],
@@ -92,16 +92,25 @@ class ProductController extends Controller
             'img'         => ['nullable', 'string', 'max:500'],
         ]);
 
+        // Ensure the user is allowed to sell
+        $seller = Usuario::findOrFail($validated['vendor_id']);
+        if (! $seller->esVendedor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El usuario no tiene permisos de vendedor.',
+            ], 403);
+        }
+
         $producto = Producto::create([
-            'id_producto'  => Str::uuid()->toString(),
-            'id_vendedor'  => $validated['vendor_id'],
-            'nombre'       => $validated['name'],
-            'descripcion'  => $validated['description'] ?? null,
-            'precio'       => $validated['price'],
-            'stock'        => $validated['stock'],
-            'categoria'    => $validated['category'] ?? 'general',
-            'imagen_url'   => $validated['img'] ?? null,
-            'estado'       => $validated['status'] ?? 'activo',
+            'id_producto' => Str::uuid()->toString(),
+            'id_vendedor' => $validated['vendor_id'],
+            'nombre'      => $validated['name'],
+            'descripcion' => $validated['description'] ?? null,
+            'precio'      => $validated['price'],
+            'stock'       => $validated['stock'],
+            'categoria'   => $validated['category'] ?? 'general',
+            'imagen_url'  => $validated['img'] ?? null,
+            'estado'      => $validated['status'] ?? 'activo',
         ]);
 
         return response()->json([
@@ -111,16 +120,14 @@ class ProductController extends Controller
         ], 201);
     }
 
-
-    // PUT /api/products/{id}
-
+    /**
+     * PUT /api/products/{id}
+     */
     public function update(Request $request, string $id): JsonResponse
     {
         $producto = Producto::findOrFail($id);
 
         // Ownership check: only run when vendor_id is provided AND it differs from the product's vendor.
-        // Admins send the product's own vendor_id , so this check passes.
-        // If vendor_id is omitted entirely, we skip the check .
         $vendorId = $request->input('vendor_id');
         if ($vendorId && $producto->id_vendedor !== $vendorId) {
             return response()->json([
@@ -156,14 +163,13 @@ class ProductController extends Controller
         ]);
     }
 
-
-    // DELETE /api/products/{id}
-
+    /**
+     * DELETE /api/products/{id}
+     */
     public function destroy(Request $request, string $id): JsonResponse
     {
         $producto = Producto::findOrFail($id);
 
-        // Same logic as update: skip ownership check when vendor_id is absent
         $vendorId = $request->query('vendor_id');
         if ($vendorId && $producto->id_vendedor !== $vendorId) {
             return response()->json([
@@ -193,7 +199,7 @@ class ProductController extends Controller
             'status'      => $p->estado,
             'img'         => $p->imagen_url
                 ?? 'https://placehold.co/400x240/1a1f35/5a6cff?text=' . urlencode($p->nombre),
-            'seller'      => $p->vendedor?->razon_social ?? 'DevMart',
+            'seller'      => $p->vendedor?->nombreComercial() ?? 'DevMart',
         ];
     }
 }

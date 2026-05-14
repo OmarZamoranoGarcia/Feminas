@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Comision;
 use App\Models\Producto;
 use App\Models\Usuario;
-use App\Models\Vendedor;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -17,16 +16,17 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Admin user
+        // Admin account — elevated privileges
         Usuario::create([
             'id_usuario'    => Str::uuid()->toString(),
-            'tipo'          => 'admin',
+            'is_admin'      => true,
             'email'         => 'admin@devmart.test',
             'password_hash' => Hash::make('password'),
             'nombre'        => 'Admin DevMart',
+            'razon_social'  => 'DevMart',
         ]);
 
-        // Vendor users + vendedor records
+        // Regular users — every one of them can buy AND sell
         $vendedoresData = [
             [
                 'nombre'       => 'Carlos Backend',
@@ -44,26 +44,19 @@ class DatabaseSeeder extends Seeder
 
         $vendedores = [];
         foreach ($vendedoresData as $vData) {
-            $uuid = Str::uuid()->toString();
-            $usuario = Usuario::create([
-                'id_usuario'    => $uuid,
-                'tipo'          => 'vendedor',
+            $vendedores[] = Usuario::create([
+                'id_usuario'    => Str::uuid()->toString(),
+                'is_admin'      => false,
                 'email'         => $vData['email'],
                 'password_hash' => Hash::make('password'),
                 'nombre'        => $vData['nombre'],
+                'razon_social'  => $vData['razon_social'],
+                'rfc'           => $vData['rfc'],
+                'descripcion'   => 'Especialistas en soluciones digitales para desarrolladores.',
             ]);
-            $vendedor = Vendedor::create([
-                'id_vendedor'  => $uuid,
-                'razon_social' => $vData['razon_social'],
-                'rfc'          => $vData['rfc'],
-                'descripcion'  => 'Especialistas en soluciones digitales para desarrolladores.',
-            ]);
-            $vendedores[] = $vendedor;
         }
 
-        // Products
         $productosData = [
-            // Carlos – backend
             [
                 'vendedor' => 0,
                 'nombre'   => 'API de Autenticación JWT',
@@ -88,7 +81,6 @@ class DatabaseSeeder extends Seeder
                 'stock'    => 200,
                 'cat'      => 'backend',
             ],
-            // Ana – frontend
             [
                 'vendedor' => 1,
                 'nombre'   => 'Dashboard React Admin',
@@ -118,7 +110,7 @@ class DatabaseSeeder extends Seeder
         foreach ($productosData as $pData) {
             Producto::create([
                 'id_producto' => Str::uuid()->toString(),
-                'id_vendedor' => $vendedores[$pData['vendedor']]->id_vendedor,
+                'id_vendedor' => $vendedores[$pData['vendedor']]->id_usuario,
                 'nombre'      => $pData['nombre'],
                 'descripcion' => $pData['desc'],
                 'precio'      => $pData['precio'],
@@ -128,16 +120,15 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Default buyer
+        // A regular user to test buying
         Usuario::create([
             'id_usuario'    => Str::uuid()->toString(),
-            'tipo'          => 'comprador',
+            'is_admin'      => false,
             'email'         => 'test@example.com',
             'password_hash' => Hash::make('password'),
             'nombre'        => 'Test User',
         ]);
 
-        // Default commission
         Comision::create([
             'id_comision'  => Str::uuid()->toString(),
             'categoria'    => null,

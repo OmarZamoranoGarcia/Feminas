@@ -17,19 +17,24 @@ class Usuario extends Authenticatable
     public $timestamps = false;
 
     protected $fillable = [
-        'tipo',
+        'is_admin',
         'email',
         'password_hash',
         'nombre',
         'direccion',
         'telefono',
+        'razon_social',
+        'rfc',
+        'descripcion',
+        'calificacion_promedio',
+        'politicas_devolucion',
+        'banco_cuenta',
     ];
 
     protected $hidden = [
         'password_hash',
     ];
 
-    // Map Laravel's auth system to our column name
     public function getAuthPassword(): string
     {
         return $this->password_hash;
@@ -38,15 +43,45 @@ class Usuario extends Authenticatable
     protected function casts(): array
     {
         return [
-            'fecha_registro' => 'datetime',
-            'password_hash'  => 'hashed',
+            'fecha_registro'        => 'datetime',
+            'password_hash'         => 'hashed',
+            'calificacion_promedio' => 'decimal:1',
+            'is_admin'              => 'boolean',
         ];
     }
 
-    // Relationships
-    public function vendedor()
+    /** Every user can sell — only admins get elevated privileges. */
+    public function esAdmin(): bool
     {
-        return $this->hasOne(Vendedor::class, 'id_vendedor', 'id_usuario');
+        return (bool) $this->is_admin;
+    }
+
+    /**
+     * All users can sell products.
+     * Kept for compatibility — always returns true.
+     */
+    public function esVendedor(): bool
+    {
+        return true;
+    }
+
+    /** Display name for the seller storefront (falls back to nombre). */
+    public function nombreComercial(): string
+    {
+        return $this->razon_social ?? $this->nombre;
+    }
+
+    /** Scope: only admin accounts. */
+    public function scopeAdmins($query)
+    {
+        return $query->where('is_admin', true);
+    }
+
+    // Relationships
+
+    public function productos()
+    {
+        return $this->hasMany(Producto::class, 'id_vendedor', 'id_usuario');
     }
 
     public function ordenes()
@@ -62,5 +97,10 @@ class Usuario extends Authenticatable
     public function carrito()
     {
         return $this->hasMany(Carrito::class, 'id_usuario', 'id_usuario');
+    }
+
+    public function splitPagos()
+    {
+        return $this->hasMany(SplitPago::class, 'id_vendedor', 'id_usuario');
     }
 }

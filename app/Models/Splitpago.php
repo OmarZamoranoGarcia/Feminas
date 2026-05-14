@@ -23,8 +23,8 @@ class SplitPago extends Model
     protected function casts(): array
     {
         return [
-            'monto_vendedor'  => 'decimal:2',
-            'monto_comision'  => 'decimal:2',
+            'monto_vendedor' => 'decimal:2',
+            'monto_comision' => 'decimal:2',
         ];
     }
 
@@ -33,8 +33,11 @@ class SplitPago extends Model
         return $this->belongsTo(Pago::class, 'id_pago', 'id_pago');
     }
 
+    /**
+     * The seller receiving this split.
+     */
     public function vendedor()
     {
-        return $this->belongsTo(Vendedor::class, 'id_vendedor', 'id_vendedor');
+        return $this->belongsTo(Usuario::class, 'id_vendedor', 'id_usuario');
     }
 }
