@@ -12,3 +12,7 @@ Route::get('/login', function () {
 Route::get('/admin', function () {
     return view('admin');
 })->name('admin');
+
+Route::get('/register', function () {
+    return view('register');
+})->name('register');

@@ -25,10 +25,13 @@
 <body>
     <nav class="navbar navbar-expand-lg bg-body-tertiary sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart <span class="badge bg-primary fs-6">Admin</span></a>
+            <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart <span class="badge bg-primary fs-6">Mi Panel</span></a>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item"><a class="nav-link" href="{{ route('home') }}">Ver Sitio</a></li>
+                    <li class="nav-item" id="userNavItem">
+                        <button class="btn btn-outline-primary ms-lg-2 btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#userPanel">👤 Cuenta</button>
+                    </li>
                     <li class="nav-item ms-3">
                         <button class="btn btn-link nav-link dark-mode-toggle" id="darkModeToggle">☀️</button>
                     </li>
@@ -38,7 +41,7 @@
     </nav>
 
     <div class="container my-5 admin-container">
-        <h1 class="mb-4">Panel de Administración</h1>
+        <h1 class="mb-4">Gestión de mis productos</h1>
 
         <!-- Navegación por Pestañas -->
         <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
@@ -132,6 +135,28 @@
         </div>
     </div>
 
+    <!-- Panel de Usuario (Offcanvas) -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="userPanel">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title">👤 Mi Cuenta</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <p class="text-muted small">Estás navegando como Administrador.</p>
+            <div class="mb-4">
+                <h6>🛒 Carrito</h6>
+                <ul id="cartList" class="list-group list-group-flush mb-3"></ul>
+                <div class="d-grid">
+                    <button class="btn btn-primary" id="checkoutBtn">Proceder al Checkout</button>
+                </div>
+            </div>
+            <hr>
+            <div class="d-grid mt-auto">
+                <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Cerrar Sesión</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="bg-body-tertiary text-center py-4 mt-5 border-top">
         <div class="container">
             <p class="mb-0">&copy; {{ date('Y') }} DevMart Admin. Todos los derechos reservados.</p>
@@ -142,6 +167,27 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const toggleButton = document.getElementById('darkModeToggle');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const cartList = document.getElementById('cartList');
+            
+            // Lógica de Sesión
+            const isLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+            if (isLoggedIn) {
+                const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                cartList.innerHTML = cart.length === 0 
+                    ? '<li class="list-group-item text-muted">Vacío</li>'
+                    : cart.map(item => `<li class="list-group-item">${item.name} - $${item.price}</li>`).join('');
+            } else {
+                // Si no está logueado, ocultamos el botón de cuenta en admin
+                document.getElementById('userNavItem').classList.add('d-none');
+            }
+
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('userLoggedIn');
+                window.location.href = "{{ route('home') }}";
+            });
+
+            // Dark Mode
             const htmlElement = document.documentElement;
             toggleButton.innerHTML = htmlElement.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
             toggleButton.addEventListener('click', () => {
