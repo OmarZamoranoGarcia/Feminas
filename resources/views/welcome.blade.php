@@ -67,7 +67,7 @@
                         <span class="cart-badge d-none" id="cartBadge">0</span>
                     </button>
 
-                    {{-- Dark mode toggle: icon set correctly by JS below --}}
+                    {{-- Dark mode toggle --}}
                     <button class="btn btn-ghost" id="darkModeToggle"
                             style="cursor:pointer;font-size:1.2rem;border:none;background:none;padding:0.5rem;"
                             aria-label="Cambiar tema"></button>
@@ -158,6 +158,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
+        // ── 1. Auth check ──────────────────────────────────────────────────────
         let currentUser = null;
         try {
             const meRes  = await fetch('/api/me', { credentials: 'same-origin' });
@@ -176,7 +177,6 @@
         if (currentUser) {
             loginNavItem.classList.add('d-none');
             registerNavItem.classList.add('d-none');
-
             logoutNavItem.classList.remove('d-none');
             userGreeting.textContent = `Hola, ${currentUser.name}`;
             userGreeting.classList.remove('d-none');
@@ -194,54 +194,50 @@
         logoutNavItem?.addEventListener('click', async () => {
             logoutNavItem.disabled = true;
             logoutNavItem.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saliendo...';
-
             try {
-                const res = await fetch('/api/logout', {
+                await fetch('/api/logout', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: { 'X-CSRF-TOKEN': CSRF },
                 });
-                await res.json();
             } catch { /* best-effort */ }
-
             localStorage.removeItem('vendorId');
             localStorage.removeItem('userTipo');
             window.location.href = "{{ route('home') }}";
         });
 
+        // ── 2. Cart identity helpers (exposed globally for cart-drawer) ────────
         const userId = currentUser ? currentUser.id : null;
 
         let sessionToken = localStorage.getItem('sessionToken');
         if (!sessionToken) {
-            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                sessionToken = crypto.randomUUID();
-            } else {
-                sessionToken = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                    var r = Math.random() * 16 | 0;
+            sessionToken = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
                     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-                });
-            }
+                  });
             localStorage.setItem('sessionToken', sessionToken);
         }
 
-        function cartParams() {
+        // Exposed so cart-drawer.blade.php can build DELETE query strings
+        window.cartParams = function () {
             return userId
                 ? `user_id=${encodeURIComponent(userId)}`
                 : `session_token=${encodeURIComponent(sessionToken)}`;
-        }
+        };
+
         function cartBody(extra = {}) {
             const base = userId ? { user_id: userId } : { session_token: sessionToken };
             return { ...base, ...extra };
         }
 
+        // ── 3. UI refs ─────────────────────────────────────────────────────────
         const productGrid = document.getElementById('productGrid');
         const searchInput = document.getElementById('searchInput');
         const btnSearch   = document.getElementById('btnSearch');
         const loader      = document.getElementById('loader');
         const cartBadge   = document.getElementById('cartBadge');
-        const cartList    = document.getElementById('cartList');
-        const cartTotalEl = document.getElementById('cartTotal');
-        const checkoutBtn = document.getElementById('checkoutBtn');
         const toastMsg    = document.getElementById('toastMsg');
 
         function showToast(msg) {
@@ -257,6 +253,7 @@
 
         let currentCategory = '';
 
+        // ── 4. Products ────────────────────────────────────────────────────────
         async function fetchProducts() {
             loader.classList.remove('d-none');
             productGrid.innerHTML = '';
@@ -347,79 +344,29 @@
             btn.innerHTML = '<i class="bi bi-cart-plus me-1"></i>Añadir';
         });
 
+        // ── 5. Cart (exposed globally so cart-drawer can trigger a reload) ─────
         async function loadCart() {
             try {
-                const res   = await fetch(`/api/cart?${cartParams()}`, { credentials: 'same-origin' });
+                const res   = await fetch(`/api/cart?${window.cartParams()}`, { credentials: 'same-origin' });
                 const items = await res.json();
-                renderCart(items);
-                updateCartDrawer(items);
+                updateBadge(items);
+                // Sync the drawer (uses syncFromApi, not the old in-memory approach)
+                if (window.cartDrawer) window.cartDrawer.syncFromApi(items);
             } catch {
-                cartList.innerHTML = '<li class="list-group-item text-danger">Error cargando carrito.</li>';
+                console.warn('Error cargando carrito.');
             }
         }
 
-        function updateCartDrawer(items) {
-            if (window.cartDrawer) {
-                window.cartDrawer.cartData = {};
-                items.forEach(item => {
-                    window.cartDrawer.cartData[item.product.id] = {
-                        id:       item.product.id,
-                        name:     item.product.name,
-                        price:    parseFloat(item.product.price),
-                        quantity: item.qty,
-                    };
-                });
-                window.cartDrawer.render();
-            }
-        }
+        // Exposed so cart-drawer can call it after a DELETE
+        window.reloadCart = loadCart;
 
-        function renderCart(items) {
+        function updateBadge(items) {
             const count = items.reduce((s, i) => s + i.qty, 0);
-            const total = items.reduce((s, i) => s + (parseFloat(i.product.price) * i.qty), 0);
-
             cartBadge.textContent = count;
             cartBadge.classList.toggle('d-none', count === 0);
-            cartTotalEl.textContent = '$' + total.toFixed(2);
-            checkoutBtn.disabled = count === 0;
-
-            if (!items.length) {
-                cartList.innerHTML = '<li class="list-group-item text-center text-muted py-4"><i class="bi bi-cart-x fs-2 d-block mb-1"></i>Tu carrito está vacío</li>';
-                return;
-            }
-
-            cartList.innerHTML = items.map(item => `
-                <li class="list-group-item px-0 d-flex align-items-center gap-2">
-                    <img src="${item.product.img}" width="46" height="46"
-                         style="object-fit:cover;border-radius:.4rem" alt="${item.product.name}">
-                    <div class="flex-grow-1 overflow-hidden">
-                        <div class="fw-semibold text-truncate">${item.product.name}</div>
-                        <small class="text-muted">×${item.qty} — $${(parseFloat(item.product.price) * item.qty).toFixed(2)}</small>
-                    </div>
-                    <button class="btn btn-sm btn-outline-danger btn-remove-cart flex-shrink-0"
-                            data-cart-id="${item.cart_id}" title="Eliminar">
-                        <i class="bi bi-trash pointer-events-none"></i>
-                    </button>
-                </li>
-            `).join('');
         }
 
-        document.getElementById('cartList').addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-remove-cart');
-            if (!btn) return;
-            btn.disabled = true;
-            try {
-                const res = await fetch(`/api/cart/${btn.dataset.cartId}?${cartParams()}`, {
-                    method: 'DELETE',
-                    credentials: 'same-origin',
-                    headers: { 'X-CSRF-TOKEN': CSRF },
-                });
-                if (res.ok) await loadCart();
-            } catch {
-                alert('Error al eliminar del carrito.');
-                btn.disabled = false;
-            }
-        });
-
+        // ── 6. Search & filters ────────────────────────────────────────────────
         btnSearch.addEventListener('click', fetchProducts);
         searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchProducts(); });
 
@@ -432,6 +379,7 @@
             });
         });
 
+        // ── Init ───────────────────────────────────────────────────────────────
         fetchProducts();
         loadCart();
     });

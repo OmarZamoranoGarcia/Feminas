@@ -36,3 +36,8 @@ Route::get('/check-db', function () {
         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }
 });
+
+Route::delete('/cart/item/{cartId}', function ($cartId) {
+    DB::table('carrito')->where('id_carrito', $cartId)->delete();
+    return response()->json(['success' => true]);
+});
