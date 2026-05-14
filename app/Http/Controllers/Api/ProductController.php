@@ -81,6 +81,9 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $maxImageSizeMb = 2;
+        $maxImageSize   = $maxImageSizeMb * 1024 * 1024;
+
         $validated = $request->validate([
             'vendor_id'   => ['required', 'string', 'exists:usuarios,id_usuario'],
             'name'        => ['required', 'string', 'max:200'],
@@ -89,7 +92,22 @@ class ProductController extends Controller
             'stock'       => ['required', 'integer', 'min:0'],
             'category'    => ['nullable', 'string', 'max:100'],
             'status'      => ['nullable', 'in:activo,agotado,oculto'],
-            'img'         => ['nullable', 'string', 'max:500'],
+            'img'         => ['nullable', 'string', function ($attribute, $value, $fail) use ($maxImageSize, $maxImageSizeMb) {
+                if (!str_starts_with($value, 'data:image/')) {
+                    return;
+                }
+                $parts = explode(',', $value, 2);
+                if (count($parts) !== 2) {
+                    return $fail('La imagen no es válida.');
+                }
+                $decoded = base64_decode($parts[1], true);
+                if ($decoded === false) {
+                    return $fail('La imagen no es válida.');
+                }
+                if (strlen($decoded) > $maxImageSize) {
+                    return $fail("La imagen debe pesar como máximo {$maxImageSizeMb} MB.");
+                }
+            }],
         ]);
 
         // Ensure the user is allowed to sell
@@ -136,6 +154,9 @@ class ProductController extends Controller
             ], 403);
         }
 
+        $maxImageSizeMb = 2;
+        $maxImageSize   = $maxImageSizeMb * 1024 * 1024;
+
         $validated = $request->validate([
             'name'        => ['sometimes', 'required', 'string', 'max:200'],
             'description' => ['nullable', 'string'],
@@ -143,7 +164,22 @@ class ProductController extends Controller
             'stock'       => ['sometimes', 'required', 'integer', 'min:0'],
             'category'    => ['nullable', 'string', 'max:100'],
             'status'      => ['nullable', 'in:activo,agotado,oculto'],
-            'img'         => ['nullable', 'string', 'max:500'],
+            'img'         => ['nullable', 'string', function ($attribute, $value, $fail) use ($maxImageSize, $maxImageSizeMb) {
+                if (!str_starts_with($value, 'data:image/')) {
+                    return;
+                }
+                $parts = explode(',', $value, 2);
+                if (count($parts) !== 2) {
+                    return $fail('La imagen no es válida.');
+                }
+                $decoded = base64_decode($parts[1], true);
+                if ($decoded === false) {
+                    return $fail('La imagen no es válida.');
+                }
+                if (strlen($decoded) > $maxImageSize) {
+                    return $fail("La imagen debe pesar como máximo {$maxImageSizeMb} MB.");
+                }
+            }],
         ]);
 
         $producto->update([

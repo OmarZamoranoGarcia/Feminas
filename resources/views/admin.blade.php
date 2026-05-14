@@ -200,6 +200,7 @@
                         <div class="col-md-6">
                             <label for="productImage" class="form-label fw-medium">Imagen del Producto</label>
                             <input type="file" class="form-control rounded-3" id="productImage" accept="image/*">
+                            <div class="form-text text-muted">Límite de imagen: 2 MB.</div>
                             <div class="mt-2 text-center">
                                 <img id="imagePreview" src="" class="img-thumbnail d-none" 
                                      style="max-height: 100px; width: auto; object-fit: contain;">
@@ -324,6 +325,8 @@
 
         const productImageInput  = document.getElementById('productImage');
         const imagePreview       = document.getElementById('imagePreview');
+        const MAX_IMAGE_SIZE_MB  = 2;
+        const MAX_IMAGE_SIZE     = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
         let pendingDeleteId   = null;
         let pendingDeleteName = '';
@@ -379,14 +382,26 @@
         // Vista previa de la imagen al seleccionar archivo
         productImageInput.addEventListener('change', function() {
             const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
-                    imagePreview.classList.remove('d-none');
-                }
-                reader.readAsDataURL(file);
+            if (!file) {
+                imagePreview.src = '';
+                imagePreview.classList.add('d-none');
+                return;
             }
+
+            if (file.size > MAX_IMAGE_SIZE) {
+                showBanner(`La imagen excede el límite de ${MAX_IMAGE_SIZE_MB} MB. Elige un archivo más pequeño.`, 'warning');
+                this.value = '';
+                imagePreview.src = '';
+                imagePreview.classList.add('d-none');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.remove('d-none');
+            }
+            reader.readAsDataURL(file);
         });
 
         async function fetchProducts() {
@@ -512,6 +527,13 @@
             formData.append('status', productStatusInput.value);
 
             if (productImageInput.files[0]) {
+                if (productImageInput.files[0].size > MAX_IMAGE_SIZE) {
+                    showBanner(`La imagen excede el límite de ${MAX_IMAGE_SIZE_MB} MB.`, 'warning');
+                    saveBtnLabel.classList.remove('d-none');
+                    saveBtnSpinner.classList.add('d-none');
+                    saveProductButton.disabled = false;
+                    return;
+                }
                 const compressedBase64 = await compressImage(productImageInput.files[0]);
                 formData.append('img', compressedBase64);
             }
