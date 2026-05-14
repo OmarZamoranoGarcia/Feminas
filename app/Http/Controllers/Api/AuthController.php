@@ -83,7 +83,11 @@ class AuthController extends Controller
             'name'      => $u->nombre,
             'email'     => $u->email,
             'tipo'      => $u->tipo,
-            'vendor_id' => $u->tipo === 'vendedor' ? $u->id_usuario : null,
+            // vendor_id is the user's own id when they can sell; null for plain buyers
+            'vendor_id' => $u->esVendedor() ? $u->id_usuario : null,
+            // Expose seller profile fields so the frontend can show them
+            'razon_social'          => $u->razon_social,
+            'calificacion_promedio' => $u->calificacion_promedio,
         ];
     }
 }

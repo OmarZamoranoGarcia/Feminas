@@ -4,71 +4,67 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Creates productos and carrito tables.
+ * The vendedores table has been removed: seller data now lives in usuarios.
+ * The id_vendedor FK on productos points directly to usuarios.id_usuario.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        // 10. RESENAS
-        Schema::create('resenas', function (Blueprint $table) {
-            $table->uuid('id_review')->primary()->default(DB::raw('(UUID())'));
-            $table->uuid('id_producto');
-            $table->uuid('id_comprador');
-            $table->integer('calificacion');
-            $table->text('comentario')->nullable();
-            $table->timestamp('fecha')->useCurrent();
-            $table->text('respuesta_vendedor')->nullable();
+        // 3. PRODUCTOS
+        Schema::create('productos', function (Blueprint $table) {
+            $table->uuid('id_producto')->primary()->default(DB::raw('(UUID())'));
+            // References usuarios.id_usuario (any user with tipo vendedor|admin can sell)
+            $table->uuid('id_vendedor');
+            $table->string('nombre', 200);
+            $table->text('descripcion')->nullable();
+            $table->decimal('precio', 10, 2);
+            $table->integer('stock')->default(0);
+            $table->string('categoria', 100)->nullable();
+            $table->string('imagen_url', 500)->nullable();
+            $table->enum('estado', ['activo', 'agotado', 'oculto'])->default('activo');
+            $table->timestamp('fecha_creacion')->useCurrent();
 
-            $table->foreign('id_producto')
-                  ->references('id_producto')
-                  ->on('productos')
-                  ->onDelete('cascade');
-
-            $table->foreign('id_comprador')
+            $table->foreign('id_vendedor')
                   ->references('id_usuario')
                   ->on('usuarios')
-                  ->onDelete('restrict');
+                  ->onDelete('cascade');
 
-            // One review per buyer per product
-            $table->unique(['id_producto', 'id_comprador']);
-            $table->index('calificacion');
-            $table->index('fecha');
-        });
-
-        // 11. COMISIONES
-        Schema::create('comisiones', function (Blueprint $table) {
-            $table->uuid('id_comision')->primary()->default(DB::raw('(UUID())'));
-            $table->string('categoria', 100)->nullable();
-            $table->decimal('porcentaje', 5, 2);
-            $table->date('fecha_inicio');
-            $table->date('fecha_fin')->nullable();
-            $table->boolean('activo')->default(true);
-
+            $table->index('id_vendedor');
             $table->index('categoria');
-            $table->index(['fecha_inicio', 'fecha_fin']);
+            $table->index('estado');
+            $table->index('precio');
         });
 
-        // 12. HISTORIAL_PRECIOS
-        Schema::create('historial_precios', function (Blueprint $table) {
-            $table->uuid('id_historial')->primary()->default(DB::raw('(UUID())'));
+        // 4. CARRITO
+        Schema::create('carrito', function (Blueprint $table) {
+            $table->uuid('id_carrito')->primary()->default(DB::raw('(UUID())'));
+            $table->uuid('id_usuario')->nullable();
+            $table->string('session_token', 255)->nullable();
             $table->uuid('id_producto');
-            $table->decimal('precio_anterior', 10, 2);
-            $table->decimal('precio_nuevo', 10, 2);
-            $table->timestamp('fecha_cambio')->useCurrent();
+            $table->integer('cantidad');
+            $table->timestamp('fecha_agregado')->useCurrent();
+
+            $table->foreign('id_usuario')
+                  ->references('id_usuario')
+                  ->on('usuarios')
+                  ->onDelete('cascade');
 
             $table->foreign('id_producto')
                   ->references('id_producto')
                   ->on('productos')
                   ->onDelete('cascade');
 
-            $table->index('id_producto');
-            $table->index('fecha_cambio');
+            $table->index('id_usuario');
+            $table->index('session_token');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('historial_precios');
-        Schema::dropIfExists('comisiones');
-        Schema::dropIfExists('resenas');
+        Schema::dropIfExists('carrito');
+        Schema::dropIfExists('productos');
     }
 };

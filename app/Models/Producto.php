@@ -32,9 +32,13 @@ class Producto extends Model
         ];
     }
 
+    /**
+     * The seller of this product.
+     * id_vendedor now references usuarios.id_usuario directly.
+     */
     public function vendedor()
     {
-        return $this->belongsTo(Vendedor::class, 'id_vendedor', 'id_vendedor');
+        return $this->belongsTo(Usuario::class, 'id_vendedor', 'id_usuario');
     }
 
     public function resenas()
@@ -57,13 +61,13 @@ class Producto extends Model
         return $this->hasMany(Carrito::class, 'id_producto', 'id_producto');
     }
 
-    // Scope: only active products
+    /** Only active products. */
     public function scopeActivo($query)
     {
         return $query->where('estado', 'activo');
     }
 
-    // Scope: filter by category
+    /** Filter by category. */
     public function scopeCategoria($query, string $categoria)
     {
         return $query->where('categoria', $categoria);

@@ -23,13 +23,18 @@ class Usuario extends Authenticatable
         'nombre',
         'direccion',
         'telefono',
+        'razon_social',
+        'rfc',
+        'descripcion',
+        'calificacion_promedio',
+        'politicas_devolucion',
+        'banco_cuenta',
     ];
 
     protected $hidden = [
         'password_hash',
     ];
 
-    // Map Laravel's auth system to our column name
     public function getAuthPassword(): string
     {
         return $this->password_hash;
@@ -38,15 +43,37 @@ class Usuario extends Authenticatable
     protected function casts(): array
     {
         return [
-            'fecha_registro' => 'datetime',
-            'password_hash'  => 'hashed',
+            'fecha_registro'        => 'datetime',
+            'password_hash'         => 'hashed',
+            'calificacion_promedio' => 'decimal:1',
         ];
     }
 
-    // Relationships
-    public function vendedor()
+
+    /** Users that can sell (vendedor or admin). */
+    public function scopeVendedores($query)
     {
-        return $this->hasOne(Vendedor::class, 'id_vendedor', 'id_usuario');
+        return $query->whereIn('tipo', ['vendedor', 'admin']);
+    }
+
+
+    /** True when this user can sell products. */
+    public function esVendedor(): bool
+    {
+        return in_array($this->tipo, ['vendedor', 'admin'], true);
+    }
+
+    /** Display name for the seller storefront (falls back to nombre). */
+    public function nombreComercial(): string
+    {
+        return $this->razon_social ?? $this->nombre;
+    }
+
+
+    /** Products this user sells (only meaningful when esVendedor()). */
+    public function productos()
+    {
+        return $this->hasMany(Producto::class, 'id_vendedor', 'id_usuario');
     }
 
     public function ordenes()
@@ -62,5 +89,10 @@ class Usuario extends Authenticatable
     public function carrito()
     {
         return $this->hasMany(Carrito::class, 'id_usuario', 'id_usuario');
+    }
+
+    public function splitPagos()
+    {
+        return $this->hasMany(SplitPago::class, 'id_vendedor', 'id_usuario');
     }
 }
