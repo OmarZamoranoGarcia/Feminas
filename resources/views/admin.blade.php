@@ -50,10 +50,22 @@
             border: 1px solid var(--bs-border-color-translucent);
         }
         .table { margin-bottom: 0; }
+       
         .product-thumb {
             width: 52px; height: 52px;
             object-fit: cover;
             border-radius: .5rem;
+            /* Agregamos una transición suave para el cambio de tamaño y la sombra */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative; /* Necesario para que el z-index funcione */
+            z-index: 1;
+        }
+
+        /* Esta es la nueva regla que se activa al pasar el cursor */
+        .product-thumb:hover {
+            transform: scale(1.8); /* Aumenta el tamaño al 180% */
+            z-index: 10; /* Asegura que la imagen sobresalga por encima de otras filas */
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2); /* Le da una pequeña sombra para dar profundidad */
         }
         .btn-gradient {
             background: linear-gradient(45deg, #0d6efd, #0dcaf0);

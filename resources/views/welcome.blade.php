@@ -15,7 +15,6 @@
 
     <style>
         body { transition: background-color 0.35s ease, color 0.35s ease; }
-        .dark-mode-toggle { cursor: pointer; font-size: 1.5rem; }
         .product-card-img { width: 100%; height: 180px; object-fit: cover; border-radius: .5rem; }
         .btn-add-cart { transition: transform .15s ease; }
         .btn-add-cart:active { transform: scale(.93); }
@@ -33,6 +32,11 @@
         (function() {
             const t = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-bs-theme', t);
+            // Update button text
+            const btn = document.getElementById('darkModeToggle');
+            if (btn) {
+                btn.textContent = t === 'dark' ? '☀️' : '🌙';
+            }
         })();
     </script>
 </head>
@@ -49,17 +53,20 @@
                     <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
                     <a id="loginNavItem"    class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
                     <a id="userNavItem"     class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">Mi Panel</a>
-                    <a class="btn btn-outline-primary btn-sm" href="{{ route('admin') }}">Admin</a>
 
                     <!-- Cart trigger button -->
                     <button class="btn btn-ghost position-relative" type="button"
-                            data-bs-toggle="offcanvas" data-bs-target="#userPanel"
+                            data-bs-toggle="offcanvas" data-bs-target="#cartDrawer"
                             id="cartToggleBtn">
                         <i class="bi bi-cart3 fs-5"></i>
                         <span class="cart-badge d-none" id="cartBadge">0</span>
                     </button>
 
-                    <button class="btn btn-link dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">☀️</button>
+                    <button class="btn btn-outline-danger btn-sm d-none" id="logoutNavItem" type="button">
+                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                    </button>
+
+                    <button class="btn btn-ghost" id="darkModeToggle" aria-label="Toggle dark mode" style="cursor: pointer; font-size: 1.2rem; border: none; background: none; padding: 0.5rem;">☀️</button>
                 </div>
             </div>
         </div>
@@ -104,34 +111,6 @@
         </div>
     </section>
 
-    <!-- Cart / User Panel  -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="userPanel" aria-labelledby="userPanelLabel">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title fw-bold" id="userPanelLabel">
-                <i class="bi bi-cart3 me-2 text-primary"></i>Mi Carrito
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body d-flex flex-column">
-            <ul id="cartList" class="list-group list-group-flush mb-3 flex-grow-1"></ul>
-
-            <div class="border-top pt-3">
-                <div class="d-flex justify-content-between fw-bold mb-3">
-                    <span>Total</span>
-                    <span id="cartTotal">$0.00</span>
-                </div>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary rounded-pill" id="checkoutBtn" disabled>
-                        <i class="bi bi-credit-card me-1"></i>Proceder al Checkout
-                    </button>
-                    <button class="btn btn-outline-danger btn-sm rounded-pill" id="logoutBtn">
-                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Toast notification -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
         <div id="cartToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive">
@@ -141,6 +120,10 @@
             </div>
         </div>
     </div>
+    <!-- Toast notification -->
+
+    <!-- Cart Drawer -->
+    @include('cart-drawer')
 
     <footer class="bg-body-tertiary text-center py-4 mt-5 border-top">
         <div class="container">
@@ -180,6 +163,7 @@
         const loginNavItem    = document.getElementById('loginNavItem');
         const registerNavItem = document.getElementById('registerNavItem');
         const userNavItem     = document.getElementById('userNavItem');
+        const logoutNavItem   = document.getElementById('logoutNavItem');
         const productGrid     = document.getElementById('productGrid');
         const searchInput     = document.getElementById('searchInput');
         const btnSearch       = document.getElementById('btnSearch');
@@ -188,7 +172,6 @@
         const cartBadge       = document.getElementById('cartBadge');
         const cartTotalEl     = document.getElementById('cartTotal');
         const checkoutBtn     = document.getElementById('checkoutBtn');
-        const logoutBtn       = document.getElementById('logoutBtn');
         const toast           = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
         const toastMsg        = document.getElementById('toastMsg');
 
@@ -199,9 +182,11 @@
             loginNavItem.classList.add('d-none');
             registerNavItem.classList.add('d-none');
             userNavItem.classList.remove('d-none');
+            logoutNavItem.classList.remove('d-none');
         }
 
-        logoutBtn.addEventListener('click', () => {
+        // Logout handler
+        logoutNavItem?.addEventListener('click', () => {
             localStorage.removeItem('userLoggedIn');
             localStorage.removeItem('userId');
             window.location.reload();
@@ -295,8 +280,25 @@
                 const res = await fetch(`/api/cart?${cartParams()}`);
                 const items = await res.json();
                 renderCart(items);
+                updateCartDrawer(items);
             } catch {
                 cartList.innerHTML = '<li class="list-group-item text-danger">Error cargando carrito.</li>';
+            }
+        }
+
+        // Sync cart data to cart-drawer
+        function updateCartDrawer(items) {
+            if (window.cartDrawer) {
+                window.cartDrawer.cartData = {};
+                items.forEach(item => {
+                    window.cartDrawer.cartData[item.product.id] = {
+                        id: item.product.id,
+                        name: item.product.name,
+                        price: parseFloat(item.product.price),
+                        quantity: item.qty
+                    };
+                });
+                window.cartDrawer.render();
             }
         }
 
@@ -366,15 +368,15 @@
             });
         });
 
-        // Dark mode
-        const toggleButton = document.getElementById('darkModeToggle');
-        const html = document.documentElement;
-        toggleButton.innerHTML = html.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
-        toggleButton.addEventListener('click', () => {
-            const newTheme = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        // Dark mode - Simple version
+        document.getElementById('darkModeToggle')?.addEventListener('click', function() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-bs-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
             html.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
+            this.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         });
 
         // Init
