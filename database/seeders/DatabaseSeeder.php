@@ -2,13 +2,6 @@
 
 namespace Database\Seeders;
 
-<<<<<<< HEAD
-use App\Models\Producto;
-use App\Models\Vendedor;
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-=======
 use App\Models\Comision;
 use App\Models\Producto;
 use App\Models\Usuario;
@@ -16,7 +9,6 @@ use App\Models\Vendedor;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
->>>>>>> 9aa5508 (Refactorized database)
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -152,29 +144,6 @@ class DatabaseSeeder extends Seeder
             'porcentaje'   => 10.00,
             'fecha_inicio' => now()->toDateString(),
             'activo'       => true,
-        ]);
-
-        $vendorId = 'vendedor-demo-001';
-        Vendedor::firstOrCreate([
-            'id_vendedor' => $vendorId,
-        ], [
-            'nombre' => 'DevMart Demo',
-            'tienda' => 'Tienda DevMart',
-        ]);
-
-        Producto::firstOrCreate([
-            'id_producto' => 'producto-demo-001',
-        ], [
-            'id_vendedor' => $vendorId,
-            'nombre' => 'Curso de API REST',
-            'descripcion' => 'Aprende a construir APIs seguras y escalables con Laravel.',
-            'precio' => 49.99,
-            'stock' => 15,
-            'categoria' => 'backend',
-            'estado' => 'activo',
-            'img' => 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
-            'seo_url' => 'curso-de-api-rest',
-            'fecha_publicacion' => now(),
         ]);
     }
 }

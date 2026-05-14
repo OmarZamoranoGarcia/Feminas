@@ -13,25 +13,12 @@ class Producto extends Model
     public $timestamps = false;
 
     protected $fillable = [
-<<<<<<< HEAD
-        'id_producto',
-=======
->>>>>>> 9aa5508 (Refactorized database)
         'id_vendedor',
         'nombre',
         'descripcion',
         'precio',
         'stock',
         'categoria',
-<<<<<<< HEAD
-        'estado',
-        'fecha_creacion',
-    ];
-
-    protected $casts = [
-        'fecha_creacion' => 'datetime',
-    ];
-=======
         'imagen_url',
         'estado',
     ];
@@ -81,5 +68,4 @@ class Producto extends Model
     {
         return $query->where('categoria', $categoria);
     }
->>>>>>> 9aa5508 (Refactorized database)
 }

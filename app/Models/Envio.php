@@ -34,4 +34,3 @@ class Envio extends Model
         return $this->belongsTo(Orden::class, 'id_orden', 'id_orden');
     }
 }
-

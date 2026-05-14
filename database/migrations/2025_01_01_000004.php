@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 5. ORDENES
+        // 5. ORDENES (sin FK a pagos todavía para evitar circular)
         Schema::create('ordenes', function (Blueprint $table) {
             $table->uuid('id_orden')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_comprador');
