@@ -60,6 +60,7 @@ class ProductController extends Controller
             'category'    => $producto->categoria,
             'img'         => $producto->imagen_url,
             'seller'      => $producto->vendedor?->razon_social,
+            'vendor_id'   => $producto->id_vendedor,
             'rating'      => $producto->vendedor?->calificacion_promedio,
             'reviews'     => $producto->resenas->map(fn ($r) => [
                 'score'    => $r->calificacion,
@@ -71,7 +72,7 @@ class ProductController extends Controller
     }
 
 
-// POST /api/products
+    // POST /api/products
 
     public function store(Request $request): JsonResponse
     {
@@ -106,13 +107,12 @@ class ProductController extends Controller
     }
 
 
-// PUT /api/products/{id}
+    // PUT /api/products/{id}
 
     public function update(Request $request, string $id): JsonResponse
     {
         $producto = Producto::findOrFail($id);
 
-        // Optional: verify ownership
         $vendorId = $request->input('vendor_id');
         if ($vendorId && $producto->id_vendedor !== $vendorId) {
             return response()->json([
@@ -149,7 +149,7 @@ class ProductController extends Controller
     }
 
 
-// DELETE /api/products/{id}
+    // DELETE /api/products/{id}
 
     public function destroy(Request $request, string $id): JsonResponse
     {
@@ -171,12 +171,11 @@ class ProductController extends Controller
         ]);
     }
 
-    // Helpers
-
     private function formatProduct(Producto $p): array
     {
         return [
             'id'          => $p->id_producto,
+            'vendor_id'   => $p->id_vendedor,   // ← exposed so the frontend can pass it back
             'name'        => $p->nombre,
             'description' => $p->descripcion,
             'price'       => number_format((float) $p->precio, 2),

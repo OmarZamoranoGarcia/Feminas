@@ -116,7 +116,7 @@
                     <h1 class="mb-1 h3 fw-bold">
                         <i class="bi bi-grid-1x2 me-2 text-primary"></i>Gestión de Productos
                     </h1>
-                    <p class="text-secondary mb-0">Crea, edita o elimina tus productos directamente desde tu panel.</p>
+                    <p class="text-secondary mb-0" id="panelSubtitle">Crea, edita o elimina productos directamente desde tu panel.</p>
                 </div>
                 <button class="btn btn-gradient rounded-pill px-4 shadow-sm" id="newProductButton" disabled>
                     <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
@@ -164,6 +164,8 @@
                 </div>
                 <div class="modal-body pt-4">
                     <input type="hidden" id="productId">
+                    {{-- For admin: stores the actual vendor_id of the product being edited --}}
+                    <input type="hidden" id="productActualVendorId">
                     <div class="row g-4">
                         <div class="col-md-6">
                             <label for="productName" class="form-label fw-medium">Nombre del Producto</label>
@@ -260,22 +262,26 @@
         const productTableBody = document.getElementById('productTableBody');
 
         if (!currentUser) {
-            // Not logged in — show warning, lock table
             notLoggedAlert.classList.remove('d-none');
             productTableBody.innerHTML = `
                 <tr><td colspan="7" class="text-center text-muted py-5">
                     <i class="bi bi-lock fs-2 d-block mb-2"></i>
                     Inicia sesión para administrar productos.
                 </td></tr>`;
-            return; // stop here
+            return;
         }
 
-        const vendorId = currentUser.vendor_id ?? currentUser.id;
+        const isAdmin  = currentUser.tipo === 'admin';
+        const myVendorId = currentUser.vendor_id ?? null; // null for admins
+
+        if (isAdmin) {
+            document.getElementById('panelSubtitle').textContent =
+                'Como administrador puedes gestionar todos los productos del marketplace.';
+        }
 
         newProductButton.disabled = false;
         document.getElementById('logoutBtn').classList.remove('d-none');
 
-        // Logout
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
                 await fetch('/api/logout', {
@@ -300,16 +306,18 @@
         const deleteBtnSpinner  = document.getElementById('deleteBtnSpinner');
         const deleteProductName = document.getElementById('deleteProductName');
 
-        const productIdInput     = document.getElementById('productId');
-        const productNameInput   = document.getElementById('productName');
-        const productDescInput   = document.getElementById('productDescription');
-        const productPriceInput  = document.getElementById('productPrice');
-        const productStockInput  = document.getElementById('productStock');
-        const productCatInput    = document.getElementById('productCategory');
-        const productStatusInput = document.getElementById('productStatus');
+        const productIdInput          = document.getElementById('productId');
+        const productActualVendorId   = document.getElementById('productActualVendorId');
+        const productNameInput        = document.getElementById('productName');
+        const productDescInput        = document.getElementById('productDescription');
+        const productPriceInput       = document.getElementById('productPrice');
+        const productStockInput       = document.getElementById('productStock');
+        const productCatInput         = document.getElementById('productCategory');
+        const productStatusInput      = document.getElementById('productStatus');
 
-        let pendingDeleteId   = null;
-        let pendingDeleteName = '';
+        let pendingDeleteId      = null;
+        let pendingDeleteName    = '';
+        let pendingDeleteVendorId = null;
 
         function showBanner(msg, type = 'success') {
             feedbackBanner.className = `alert alert-${type} rounded-3`;
@@ -324,30 +332,37 @@
         }
 
         function resetForm() {
-            productIdInput.value     = '';
-            productNameInput.value   = '';
-            productDescInput.value   = '';
-            productPriceInput.value  = '';
-            productStockInput.value  = '';
-            productCatInput.value    = '';
-            productStatusInput.value = 'activo';
+            productIdInput.value          = '';
+            productActualVendorId.value   = '';
+            productNameInput.value        = '';
+            productDescInput.value        = '';
+            productPriceInput.value       = '';
+            productStockInput.value       = '';
+            productCatInput.value         = '';
+            productStatusInput.value      = 'activo';
             document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
             saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
         }
 
+        // Admins fetch all products; vendors filter by their own vendor_id.
         async function fetchProducts() {
             productTableBody.innerHTML = `
                 <tr><td colspan="7" class="text-center text-primary py-5 fw-bold">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
                 </td></tr>`;
             try {
-                const res      = await fetch(`/api/products?vendor_id=${encodeURIComponent(vendorId)}`, { credentials: 'same-origin' });
+                // Vendors pass their vendor_id as a filter; admins don't.
+                const url = myVendorId
+                    ? `/api/products?vendor_id=${encodeURIComponent(myVendorId)}`
+                    : `/api/products`;
+
+                const res      = await fetch(url, { credentials: 'same-origin' });
                 const products = await res.json();
                 renderTable(products);
-            } catch {
+            } catch (err) {
                 productTableBody.innerHTML = `
                     <tr><td colspan="7" class="text-center text-danger py-4">
-                        Error cargando productos.
+                        Error cargando productos: ${err.message}
                     </td></tr>`;
             }
         }
@@ -357,7 +372,7 @@
                 productTableBody.innerHTML = `
                     <tr><td colspan="7" class="text-center text-muted py-5">
                         <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                        No tienes productos publicados todavía.
+                        No hay productos publicados todavía.
                     </td></tr>`;
                 return;
             }
@@ -369,6 +384,7 @@
                     <td>
                         <strong>${p.name}</strong><br>
                         <small class="text-secondary">${(p.description ?? '').substring(0, 50)}${(p.description ?? '').length > 50 ? '…' : ''}</small>
+                        ${isAdmin ? `<br><small class="text-secondary fst-italic">Vendedor: ${p.seller}</small>` : ''}
                     </td>
                     <td class="fw-medium">$${p.price}</td>
                     <td>${p.stock}</td>
@@ -378,6 +394,7 @@
                         <button class="btn btn-sm btn-light border me-1"
                                 data-action="edit"
                                 data-id="${p.id}"
+                                data-vendor-id="${p.vendor_id ?? ''}"
                                 data-name="${p.name}"
                                 data-desc="${(p.description ?? '').replace(/"/g, '&quot;')}"
                                 data-price="${p.price}"
@@ -390,6 +407,7 @@
                         <button class="btn btn-sm btn-light border"
                                 data-action="delete"
                                 data-id="${p.id}"
+                                data-vendor-id="${p.vendor_id ?? ''}"
                                 data-name="${p.name}"
                                 title="Eliminar">
                             <i class="bi bi-trash text-danger"></i>
@@ -409,21 +427,24 @@
             if (!btn) return;
 
             if (btn.dataset.action === 'edit') {
-                productIdInput.value     = btn.dataset.id;
-                productNameInput.value   = btn.dataset.name;
-                productDescInput.value   = btn.dataset.desc;
-                productPriceInput.value  = btn.dataset.price;
-                productStockInput.value  = btn.dataset.stock;
-                productCatInput.value    = btn.dataset.category;
-                productStatusInput.value = btn.dataset.status;
+                productIdInput.value          = btn.dataset.id;
+                // Store the product's real vendor_id so the API call is correct
+                productActualVendorId.value   = btn.dataset.vendorId;
+                productNameInput.value        = btn.dataset.name;
+                productDescInput.value        = btn.dataset.desc;
+                productPriceInput.value       = btn.dataset.price;
+                productStockInput.value       = btn.dataset.stock;
+                productCatInput.value         = btn.dataset.category;
+                productStatusInput.value      = btn.dataset.status;
                 document.getElementById('productModalLabel').textContent = 'Editar producto';
                 saveBtnLabel.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Actualizar producto';
                 productModal.show();
             }
 
             if (btn.dataset.action === 'delete') {
-                pendingDeleteId   = btn.dataset.id;
-                pendingDeleteName = btn.dataset.name;
+                pendingDeleteId       = btn.dataset.id;
+                pendingDeleteName     = btn.dataset.name;
+                pendingDeleteVendorId = btn.dataset.vendorId;
                 deleteProductName.textContent = pendingDeleteName;
                 deleteModal.show();
             }
@@ -443,8 +464,15 @@
             const url    = existingId ? `/api/products/${existingId}` : '/api/products';
             const method = existingId ? 'PUT' : 'POST';
 
+            // For new products: vendors use their own vendor_id; admins must pick one
+            // (for now admins create under the first available vendor — extend as needed).
+            // For edits: use the product's actual vendor_id so the ownership check passes.
+            const vendorIdForPayload = existingId
+                ? (productActualVendorId.value || myVendorId)  // editing: use product's real vendor
+                : myVendorId;                                   // creating: use logged-in vendor
+
             const payload = {
-                vendor_id:   vendorId,
+                vendor_id:   vendorIdForPayload,
                 name:        productNameInput.value.trim(),
                 description: productDescInput.value.trim(),
                 price:       parseFloat(productPriceInput.value),
@@ -457,9 +485,13 @@
                 const res  = await fetch(url, {
                     method,
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF,
+                    },
                     body: JSON.stringify(payload),
                 });
+
                 const data = await res.json();
 
                 if (res.ok && data.success) {
@@ -469,8 +501,8 @@
                 } else {
                     showBanner('Error: ' + (data.message ?? JSON.stringify(data.errors ?? '')), 'danger');
                 }
-            } catch {
-                showBanner('Error de conexión con el servidor.', 'danger');
+            } catch (err) {
+                showBanner('Error de conexión con el servidor: ' + err.message, 'danger');
             }
 
             saveBtnLabel.classList.remove('d-none');
@@ -485,10 +517,20 @@
             deleteBtnSpinner.classList.remove('d-none');
             confirmDeleteBtn.disabled = true;
 
+            // Pass the product's actual vendor_id so ownership check in the API passes.
+            // Admins: pendingDeleteVendorId holds the product's real vendor_id.
+            const vendorParam = pendingDeleteVendorId
+                ? `vendor_id=${encodeURIComponent(pendingDeleteVendorId)}`
+                : '';
+
             try {
                 const res  = await fetch(
-                    `/api/products/${pendingDeleteId}?vendor_id=${encodeURIComponent(vendorId)}`,
-                    { method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRF-TOKEN': CSRF } }
+                    `/api/products/${pendingDeleteId}${vendorParam ? '?' + vendorParam : ''}`,
+                    {
+                        method: 'DELETE',
+                        credentials: 'same-origin',
+                        headers: { 'X-CSRF-TOKEN': CSRF },
+                    }
                 );
                 const data = await res.json();
 
@@ -499,14 +541,15 @@
                 } else {
                     showBanner('Error al eliminar: ' + (data.message ?? ''), 'danger');
                 }
-            } catch {
-                showBanner('Error de conexión.', 'danger');
+            } catch (err) {
+                showBanner('Error de conexión: ' + err.message, 'danger');
             }
 
             deleteBtnLabel.classList.remove('d-none');
             deleteBtnSpinner.classList.add('d-none');
             confirmDeleteBtn.disabled = false;
-            pendingDeleteId = null;
+            pendingDeleteId       = null;
+            pendingDeleteVendorId = null;
         });
 
         const toggleButton = document.getElementById('darkModeToggle');
