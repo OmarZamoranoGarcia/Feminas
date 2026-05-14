@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\OrderController;
 
 // API Routes
 
@@ -24,3 +25,6 @@ Route::get('/cart',              [CartController::class, 'index']);
 Route::post('/cart',             [CartController::class, 'store']);
 Route::put('/cart/{id}',         [CartController::class, 'update']);
 Route::delete('/cart/{id}',      [CartController::class, 'destroy']);
+
+// Orders
+Route::post('/orders',           [OrderController::class, 'store']);

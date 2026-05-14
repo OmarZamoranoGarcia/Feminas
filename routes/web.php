@@ -22,6 +22,10 @@ Route::get('/register', function () {
 
 Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
 
+Route::get('/checkout', function () {
+    return view('checkout');
+})->name('checkout');
+
 Route::get('/test-product', [TestProductController::class, 'createTestProduct']);
 
 Route::get('/check-db', function () {
