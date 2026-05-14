@@ -3,10 +3,6 @@
 -- MARKETPLACE CON MÚLTIPLES VENDEDORES
 -- ======================================================
 
--- Crear la base de datos (opcional)
--- CREATE DATABASE marketplace;
--- USE marketplace;
-
 -- ======================================================
 -- 1. TABLA USUARIOS
 -- ======================================================
@@ -204,10 +200,6 @@ CREATE TABLE comisiones (
     INDEX idx_categoria (categoria),
     INDEX idx_fechas (fecha_inicio, fecha_fin)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Insertar comisión general por defecto
-INSERT INTO comisiones (id_comision, categoria, porcentaje, fecha_inicio, activo)
-VALUES (UUID(), NULL, 10.00, CURDATE(), TRUE);
 
 -- ======================================================
 -- 12. TABLA DE HISTORIAL DE PRECIOS (opcional)
