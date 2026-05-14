@@ -11,11 +11,12 @@ return new class extends Migration
         if (!Schema::hasTable('vendedores')) {
             Schema::create('vendedores', function (Blueprint $table) {
                 $table->char('id_vendedor', 36)->primary();
-                $table->char('id_usuario', 36)->nullable();
-                $table->string('nombre', 150)->nullable();
-                $table->string('tienda', 200)->nullable();
-                $table->timestamp('created_at')->nullable();
-                $table->timestamp('updated_at')->nullable();
+                $table->string('razon_social', 200);
+                $table->string('rfc', 13)->unique()->nullable();
+                $table->text('descripcion')->nullable();
+                $table->decimal('calificacion_promedio', 2, 1)->default(0.0);
+                $table->text('politicas_devolucion')->nullable();
+                $table->string('banco_cuenta', 100)->nullable();
             });
         }
     }

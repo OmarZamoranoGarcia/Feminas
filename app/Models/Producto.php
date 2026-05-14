@@ -21,12 +21,10 @@ class Producto extends Model
         'stock',
         'categoria',
         'estado',
-        'img',
-        'seo_url',
-        'fecha_publicacion',
+        'fecha_creacion',
     ];
 
     protected $casts = [
-        'fecha_publicacion' => 'datetime',
+        'fecha_creacion' => 'datetime',
     ];
 }

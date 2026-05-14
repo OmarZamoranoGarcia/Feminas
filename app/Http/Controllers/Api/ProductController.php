@@ -30,7 +30,7 @@ class ProductController extends Controller
             $query->where('id_vendedor', $request->input('vendor_id'));
         }
 
-        $products = $query->orderBy('fecha_publicacion', 'desc')->get();
+        $products = $query->orderBy('fecha_creacion', 'desc')->get();
 
         return response()->json($products->map(function (Producto $product) {
             return [
@@ -42,8 +42,8 @@ class ProductController extends Controller
                 'category' => $product->categoria,
                 'status' => $product->estado,
                 'vendor_id' => $product->id_vendedor,
-                'img' => $product->img ?: 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
-                'published_at' => $product->fecha_publicacion?->toDateTimeString(),
+                'img' => 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+                'published_at' => $product->fecha_creacion?->toDateTimeString(),
             ];
         }));
     }
@@ -62,13 +62,6 @@ class ProductController extends Controller
         ]);
 
         $vendorId = $data['vendor_id'] ?? 'vendedor-demo-001';
-        Vendedor::firstOrCreate(
-            ['id_vendedor' => $vendorId],
-            [
-                'nombre' => 'Vendedor DevMart',
-                'tienda' => 'DevMart Store',
-            ]
-        );
 
         $product = Producto::create([
             'id_producto' => Str::uuid()->toString(),
@@ -79,9 +72,7 @@ class ProductController extends Controller
             'stock' => $data['stock'],
             'categoria' => $data['category'] ?? 'general',
             'estado' => $data['status'] ?? 'activo',
-            'img' => $data['img'] ?? 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
-            'seo_url' => strtolower(Str::slug($data['name'])),
-            'fecha_publicacion' => now(),
+            'fecha_creacion' => now(),
         ]);
 
         return response()->json(['success' => true, 'product' => $product], 201);
@@ -113,7 +104,6 @@ class ProductController extends Controller
             'stock' => $data['stock'],
             'categoria' => $data['category'] ?? $product->categoria,
             'estado' => $data['status'] ?? $product->estado,
-            'img' => $data['img'] ?? $product->img,
         ]);
 
         return response()->json(['success' => true, 'product' => $product]);

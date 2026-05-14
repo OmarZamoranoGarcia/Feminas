@@ -14,8 +14,11 @@ class Vendedor extends Model
 
     protected $fillable = [
         'id_vendedor',
-        'id_usuario',
-        'nombre',
-        'tienda',
+        'razon_social',
+        'rfc',
+        'descripcion',
+        'calificacion_promedio',
+        'politicas_devolucion',
+        'banco_cuenta',
     ];
 }

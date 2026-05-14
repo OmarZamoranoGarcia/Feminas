@@ -7,6 +7,7 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <style>
         body { transition: background-color 0.3s ease, color 0.3s ease; }
@@ -105,10 +106,6 @@
                                 <label for="productDescription" class="form-label">Descripción</label>
                                 <textarea class="form-control" id="productDescription" rows="4"></textarea>
                             </div>
-                            <div class="col-12">
-                                <label for="productImg" class="form-label">URL de imagen</label>
-                                <input type="url" class="form-control" id="productImg" placeholder="https://...">
-                            </div>
                             <div class="col-md-6">
                                 <label for="productStatus" class="form-label">Estado</label>
                                 <select class="form-select" id="productStatus">
@@ -173,7 +170,6 @@
             const productStockInput = document.getElementById('productStock');
             const productCategoryInput = document.getElementById('productCategory');
             const productStatusInput = document.getElementById('productStatus');
-            const productImgInput = document.getElementById('productImg');
             const saveProductButton = document.getElementById('saveProductButton');
 
             const vendorId = localStorage.getItem('vendorId') || 'vendedor-demo-001';
@@ -231,7 +227,6 @@
                 productStockInput.value = '';
                 productCategoryInput.value = '';
                 productStatusInput.value = 'activo';
-                productImgInput.value = '';
                 saveProductButton.textContent = 'Guardar producto';
                 document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
             }
@@ -251,27 +246,43 @@
                     stock: parseInt(productStockInput.value, 10) || 0,
                     category: productCategoryInput.value.trim() || 'general',
                     status: productStatusInput.value,
-                    img: productImgInput.value.trim() || null,
                 };
 
                 const existingProductId = productIdInput.value;
                 const url = existingProductId ? `/api/products/${existingProductId}` : '/api/products';
                 const method = existingProductId ? 'PUT' : 'POST';
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-                const response = await fetch(url, {
-                    method,
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload),
-                });
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify(payload),
+                    });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    alert(error.message || 'No se pudo guardar el producto.');
-                    return;
+                    if (!response.ok) {
+                        let errorMessage = 'No se pudo guardar el producto.';
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.message || errorMessage;
+                        } catch (e) {
+                            // Si el servidor devuelve un error 500 HTML, capturamos el fallo del parseo JSON
+                            errorMessage = `Error del servidor (${response.status}). Revisa la consola o los logs de Laravel.`;
+                        }
+                        alert(errorMessage);
+                        return;
+                    }
+
+                    await fetchProducts();
+                    productModal.hide();
+                    alert(existingProductId ? 'Producto actualizado correctamente.' : '¡Producto creado con éxito!');
+                } catch (error) {
+                    console.error('Error de red:', error);
+                    alert('Ocurrió un error al intentar conectar con el servidor.');
                 }
-
-                await fetchProducts();
-                productModal.hide();
             });
 
             productTableBody.addEventListener('click', async (event) => {
@@ -298,15 +309,19 @@
                     productStockInput.value = product.stock;
                     productCategoryInput.value = product.category || '';
                     productStatusInput.value = product.status || 'activo';
-                    productImgInput.value = product.img || '';
                     saveProductButton.textContent = 'Actualizar producto';
                     document.getElementById('productModalLabel').textContent = 'Editar producto';
                     productModal.show();
                 }
 
                 if (action === 'delete' && confirm('¿Eliminar este producto?')) {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
                     const response = await fetch(`/api/products/${id}?vendor_id=${encodeURIComponent(vendorId)}`, {
                         method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
                     });
                     if (!response.ok) {
                         const error = await response.json();
