@@ -12,40 +12,7 @@
 
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        .hero-section {
-            min-height: 80vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            background-color: var(--bs-body-tertiary-bg);
-            color: var(--bs-body-color);
-        }
-        .feature-card {
-            background-color: var(--bs-body-bg);
-            border: 1px solid var(--bs-border-color);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            transition: transform 0.2s ease-in-out;
-        }
-        .feature-card:hover {
-            transform: translateY(-5px);
-        }
-        .img-placeholder {
-            width: 100%;
-            height: 200px;
-            background-color: var(--bs-tertiary-bg);
-            border: 1px dashed var(--bs-border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--bs-secondary-color);
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-            border-radius: 0.3rem;
+            transition: background-color 0.35s ease, color 0.35s ease;
         }
         .dark-mode-toggle {
             cursor: pointer;
@@ -61,45 +28,34 @@
     </script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top py-3">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link active" href="{{ route('home') }}">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#">Productos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#">Vender</a></li>
-                    <li class="nav-item" id="registerNavItem">
-                        <a class="nav-link" href="{{ route('register') }}">Registrarse</a>
-                    </li>
-                    <li class="nav-item" id="loginNavItem">
-                        <a class="nav-link fw-bold text-primary" href="{{ route('login') }}">Iniciar Sesión</a>
-                    </li>
-                    <li class="nav-item d-none" id="userNavItem">
-                        <button class="btn btn-outline-primary ms-lg-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#userPanel">👤 Mi Panel</button>
-                    </li>
-                    <li class="nav-item"><a class="nav-link text-danger fw-bold" href="{{ route('admin') }}">Admin</a></li>
-                    <li class="nav-item ms-3">
-                        <button class="btn btn-link nav-link dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">☀️</button>
-                    </li>
-                </ul>
+                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions">
+                    <a class="nav-link" href="{{ route('home') }}">Inicio</a>
+                    <a class="btn btn-ghost" href="#">Productos</a>
+                    <a class="btn btn-ghost" href="#">Vender</a>
+                    <a class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
+                    <a class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
+                    <a class="btn btn-outline-primary btn-sm" href="{{ route('admin') }}">Admin</a>
+                    <button class="btn btn-link dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">☀️</button>
+                </div>
             </div>
         </div>
     </nav>
 
     <header class="hero-section py-5">
         <div class="container">
-            <h1 class="display-3 fw-bold mb-4">Encuentra y Vende Soluciones de Desarrollo</h1>
-            <p class="lead mb-5">DevMart es el marketplace definitivo para desarrolladores. Descubre herramientas, componentes y servicios que impulsarán tus proyectos.</p>
-            <a href="#" class="btn btn-primary btn-lg me-3">Explorar Productos</a>
-            <a href="#" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
-            <div class="mt-4">
-                <div id="authLinksHero">
-                    <a href="{{ route('login') }}" class="text-decoration-none fw-bold me-3">¿Ya tienes cuenta? Inicia sesión</a>
-                    <a href="{{ route('register') }}" class="text-decoration-none fw-bold">Crear una cuenta</a>
+            <div class="hero-panel mx-auto text-center">
+                <h1 class="fw-bold mb-4">Encuentra y Vende Productos en DevMart</h1>
+                <p class="lead mb-5">DevMart es el marketplace definitivo para ti. Descubre una gran variedad de productos.</p>
+                <div class="hero-cta-group justify-content-center">
+                    <a href="#" class="btn btn-primary btn-lg">Explorar Productos</a>
+                    <a href="#" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
                 </div>
             </div>
         </div>
@@ -108,7 +64,7 @@
     <section class="container my-5 py-4">
         <div class="row mb-5 justify-content-center">
             <div class="col-md-8 text-center">
-                <h2 class="display-6 fw-bold mb-4">Catálogo de Soluciones</h2>
+                <h2 class="display-6 fw-bold mb-4">Catálogo de Productos</h2>
                 <div class="input-group input-group-lg shadow-sm">
                     <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre (ej: API, React...)" aria-label="Buscador">
                     <button class="btn btn-primary" id="btnSearch" type="button">Buscar</button>

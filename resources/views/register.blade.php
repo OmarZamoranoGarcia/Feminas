@@ -21,17 +21,18 @@
     </script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top py-3">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Iniciar Sesión</a></li>
-                    <li class="nav-item ms-3">
-                        <button class="btn btn-link nav-link dark-mode-toggle" id="darkModeToggle">☀️</button>
-                    </li>
-                </ul>
+                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions">
+                    <a class="nav-link" href="{{ route('home') }}">Inicio</a>
+                    <a class="btn btn-ghost" href="{{ route('login') }}">Iniciar Sesión</a>
+                    <button class="btn btn-link dark-mode-toggle" id="darkModeToggle">☀️</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -39,7 +40,7 @@
     <div class="container my-5 py-5">
         <div class="row justify-content-center">
             <div class="col-md-6">
-                <div class="card shadow border-0">
+                <div class="card glass shadow border-0">
                     <div class="card-header bg-primary text-white text-center py-3">
                         <h3 class="mb-0">Únete a DevMart</h3>
                     </div>

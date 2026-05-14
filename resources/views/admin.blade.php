@@ -23,19 +23,18 @@
     </script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top py-3">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart <span class="badge bg-primary fs-6">Mi Panel</span></a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}">Ver Sitio</a></li>
-                    <li class="nav-item" id="userNavItem">
-                        <button class="btn btn-outline-primary ms-lg-2 btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#userPanel">👤 Cuenta</button>
-                    </li>
-                    <li class="nav-item ms-3">
-                        <button class="btn btn-link nav-link dark-mode-toggle" id="darkModeToggle">☀️</button>
-                    </li>
-                </ul>
+                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions">
+                    <a class="nav-link" href="{{ route('home') }}">Ver Sitio</a>
+                    <button class="btn btn-ghost btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#userPanel">👤 Cuenta</button>
+                    <button class="btn btn-link dark-mode-toggle" id="darkModeToggle">☀️</button>
+                </div>
             </div>
         </div>
     </nav>

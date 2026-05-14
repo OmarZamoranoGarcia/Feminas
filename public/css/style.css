@@ -1,0 +1,339 @@
+/* DevMart custom theme: minimal, formal y futurista */
+:root {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color-scheme: light;
+    --bg: #f6f8ff;
+    --surface: rgba(255, 255, 255, 0.92);
+    --surface-soft: rgba(245, 247, 255, 0.72);
+    --surface-border: rgba(15, 23, 42, 0.08);
+    --text: #070b14;
+    --muted: rgba(7, 10, 18, 0.72);
+    --shadow: 0 28px 90px rgba(15, 23, 42, 0.18);
+    --accent: #5a6cff;
+    --accent-strong: #2ac3ff;
+    --link: #2c5cff;
+    --hero-bg: radial-gradient(circle at top left, rgba(90, 108, 255, 0.12), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(42, 195, 255, 0.08), transparent 23%),
+                #f6f8ff;
+}
+
+:root[data-bs-theme='dark'] {
+    color-scheme: dark;
+    --bg: #05080f;
+    --surface: rgba(255, 255, 255, 0.05);
+    --surface-soft: rgba(255, 255, 255, 0.06);
+    --surface-border: rgba(255, 255, 255, 0.08);
+    --text: #e8edf8;
+    --muted: rgba(226, 236, 255, 0.72);
+    --shadow: 0 28px 90px rgba(0, 0, 0, 0.24);
+    --accent: #5a6cff;
+    --accent-strong: #2ac3ff;
+    --link: #95d8ff;
+    --hero-bg: radial-gradient(circle at top left, rgba(86, 130, 255, 0.16), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(46, 255, 239, 0.08), transparent 23%),
+                #05080f;
+}
+
+html, body {
+    min-height: 100%;
+    background: var(--hero-bg);
+    color: var(--text);
+}
+
+body {
+    transition: background 0.35s ease, color 0.35s ease;
+    overflow-x: hidden;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    transition: background 0.35s ease, border-color 0.35s ease;
+}
+
+:root[data-bs-theme='dark'] .navbar {
+    background: rgba(5, 8, 15, 0.92) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navbar-brand {
+    letter-spacing: 0.18em;
+    font-size: 1.1rem;
+    color: var(--text) !important;
+}
+
+.navbar-nav {
+    gap: 0.75rem;
+}
+
+.navbar .nav-link,
+.navbar .btn-link {
+    color: var(--muted) !important;
+    padding: 0.6rem 0.9rem;
+    transition: all 0.24s ease;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .btn-link:hover,
+.navbar .btn-link:focus {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    transform: translateY(-1px);
+}
+
+.navbar .btn-ghost {
+    color: var(--text);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 1rem;
+    padding: 0.65rem 1rem;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
+}
+
+:root[data-bs-theme='dark'] .navbar .btn-ghost {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+}
+
+.navbar .btn-ghost:hover {
+    border-color: rgba(92, 115, 255, 0.55);
+    background: rgba(92, 115, 255, 0.14);
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-toggler {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.btn-primary,
+.btn-primary.btn-lg,
+.btn-success,
+.btn-outline-primary {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 18px 40px rgba(43, 195, 255, 0.18);
+    transition: transform 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #5a6cff 0%, #2ac3ff 100%);
+    color: #fff;
+}
+
+.btn-primary:hover,
+.btn-success:hover,
+.btn-outline-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 46px rgba(43, 195, 255, 0.28);
+}
+
+.btn-outline-secondary,
+.btn-secondary {
+    color: #cad6ef;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-outline-secondary:hover,
+.btn-secondary:hover {
+    background: rgba(92, 115, 255, 0.14);
+    border-color: rgba(92, 115, 255, 0.38);
+    color: #fff;
+}
+
+.hero-section {
+    min-height: 88vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(92, 115, 255, 0.18), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(61, 221, 255, 0.12), transparent 20%);
+    pointer-events: none;
+}
+
+.hero-panel {
+    position: relative;
+    z-index: 1;
+    padding: 3rem 2rem;
+    border-radius: 2rem;
+    background: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow);
+}
+
+.hero-panel h1 {
+    font-size: clamp(2.75rem, 5vw, 4.75rem);
+    line-height: 1.02;
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+.hero-panel p.lead {
+    color: var(--muted);
+    max-width: 44rem;
+    margin: 0 auto 2rem;
+}
+
+.hero-cta-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.hero-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.95rem;
+    color: rgba(226, 236, 255, 0.75);
+    margin-top: 1.5rem;
+}
+
+.feature-card {
+    background: var(--surface-soft);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.4rem;
+    padding: 1.6rem;
+    transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+    backdrop-filter: blur(14px);
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(92, 115, 255, 0.35);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.22);
+}
+
+.feature-card h4 {
+    color: var(--text);
+}
+
+.feature-card p {
+    color: var(--muted);
+}
+
+.input-group .form-control,
+.form-control,
+.form-select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text);
+}
+
+.input-group .form-control::placeholder,
+.form-control::placeholder {
+    color: rgba(7, 10, 18, 0.45);
+}
+
+:root[data-bs-theme='dark'] .input-group .form-control::placeholder,
+:root[data-bs-theme='dark'] .form-control::placeholder {
+    color: rgba(226, 236, 255, 0.45);
+}
+
+.input-group .form-control:focus,
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--accent);
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.filter-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: #c8d2ef;
+    transition: transform 0.2s ease, border-color 0.24s ease, color 0.24s ease;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+    color: #fff;
+    border-color: rgba(92, 115, 255, 0.45);
+    transform: translateY(-1px);
+    background: rgba(92, 115, 255, 0.12);
+}
+
+section.container {
+    position: relative;
+}
+
+footer {
+    color: rgba(198, 212, 242, 0.66);
+}
+
+.card.glass {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(14px);
+}
+
+:root[data-bs-theme='dark'] .card.glass {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card.glass .card-header {
+    background: rgba(16, 24, 40, 0.94);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card.glass .form-control,
+.card.glass .form-select {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+}
+
+.table {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.table thead th {
+    color: #d2dcff;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.table tbody tr:hover {
+    background: rgba(92, 115, 255, 0.08);
+}
+
+.offcanvas {
+    background: rgba(7, 10, 18, 0.98);
+}
+
+.offcanvas .btn-primary,
+.offcanvas .btn-outline-danger {
+    width: 100%;
+}
+
+@media (max-width: 992px) {
+    .hero-panel { padding: 2rem 1.5rem; }
+    .navbar-nav { gap: 0.55rem; }
+}
+
+@media (max-width: 768px) {
+    .hero-cta-group { flex-direction: column; align-items: stretch; }
+    .navbar .nav-link,
+    .navbar .btn-link { padding: 0.55rem 0.75rem; }
+}
