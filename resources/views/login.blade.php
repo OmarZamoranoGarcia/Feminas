@@ -6,9 +6,6 @@
     <title>Iniciar Sesión - DevMart</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    @include('partials.auth-sync')
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
 
@@ -45,11 +42,12 @@
                             <div class="mb-3">
                                 <label for="email" class="form-label">Correo Electrónico</label>
                                 <input type="email" class="form-control" id="email"
-                                       placeholder="nombre@ejemplo.com" required>
+                                       placeholder="nombre@ejemplo.com" required autocomplete="email">
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Contraseña</label>
-                                <input type="password" class="form-control" id="password" required>
+                                <input type="password" class="form-control" id="password"
+                                       required autocomplete="current-password">
                             </div>
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
@@ -80,12 +78,11 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const submitBtn    = document.getElementById('submitBtn');
-        const submitLabel  = document.getElementById('submitLabel');
+        const submitBtn     = document.getElementById('submitBtn');
+        const submitLabel   = document.getElementById('submitLabel');
         const submitSpinner = document.getElementById('submitSpinner');
-        const errorAlert   = document.getElementById('errorAlert');
+        const errorAlert    = document.getElementById('errorAlert');
 
-        // Loading state
         submitBtn.disabled = true;
         submitLabel.classList.add('d-none');
         submitSpinner.classList.remove('d-none');
@@ -94,12 +91,13 @@
         try {
             const res = await fetch('/api/login', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF,
                 },
                 body: JSON.stringify({
-                    email:    document.getElementById('email').value,
+                    email:    document.getElementById('email').value.trim(),
                     password: document.getElementById('password').value,
                 }),
             });
@@ -107,26 +105,25 @@
             const data = await res.json();
 
             if (data.success) {
-                // Persist user info — vendor_id will be the real UUID from the DB
-                localStorage.setItem('userLoggedIn', 'true');
-                localStorage.setItem('userId',    data.user.id);
-                localStorage.setItem('userName',  data.user.name);
-                localStorage.setItem('userTipo',  data.user.tipo);
-                localStorage.setItem('vendorId',  data.user.vendor_id ?? '');
-
+                // Only store non-sensitive display info and vendor id for API calls
+                localStorage.setItem('vendorId', data.user.vendor_id ?? '');
+                localStorage.setItem('userTipo', data.user.tipo);
+                // Redirect — the session cookie is now set by the browser automatically
                 window.location.href = "{{ route('home') }}";
             } else {
                 errorAlert.textContent = data.message ?? 'Error al iniciar sesión.';
                 errorAlert.classList.remove('d-none');
+                submitBtn.disabled = false;
+                submitLabel.classList.remove('d-none');
+                submitSpinner.classList.add('d-none');
             }
         } catch {
             errorAlert.textContent = 'Error de conexión con el servidor.';
             errorAlert.classList.remove('d-none');
+            submitBtn.disabled = false;
+            submitLabel.classList.remove('d-none');
+            submitSpinner.classList.add('d-none');
         }
-
-        submitBtn.disabled = false;
-        submitLabel.classList.remove('d-none');
-        submitSpinner.classList.add('d-none');
     });
 
     // Dark mode

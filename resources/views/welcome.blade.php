@@ -6,9 +6,6 @@
     <title>DevMart - Tu Marketplace de Desarrollo</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    @include('partials.auth-sync')
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
@@ -26,17 +23,14 @@
             display: flex; align-items: center; justify-content: center;
             font-weight: 700;
         }
+        /* Hide auth nav items until /api/me resolves */
+        .nav-auth { visibility: hidden; }
     </style>
 
     <script>
         (function() {
             const t = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-bs-theme', t);
-            // Update button text
-            const btn = document.getElementById('darkModeToggle');
-            if (btn) {
-                btn.textContent = t === 'dark' ? '☀️' : '🌙';
-            }
         })();
     </script>
 </head>
@@ -48,13 +42,20 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions">
+                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions nav-auth">
                     <a class="nav-link" href="{{ route('home') }}">Inicio</a>
+
+                    {{-- Shown when logged OUT --}}
                     <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
                     <a id="loginNavItem"    class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
-                    <a id="userNavItem"     class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">Mi Panel</a>
 
-                    <!-- Cart trigger button -->
+                    {{-- Shown when logged IN --}}
+                    <a id="userNavItem"     class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">Mi Panel</a>
+                    <button class="btn btn-outline-danger btn-sm d-none" id="logoutNavItem" type="button">
+                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                    </button>
+
+                    <!-- Cart trigger -->
                     <button class="btn btn-ghost position-relative" type="button"
                             data-bs-toggle="offcanvas" data-bs-target="#cartDrawer"
                             id="cartToggleBtn">
@@ -62,11 +63,8 @@
                         <span class="cart-badge d-none" id="cartBadge">0</span>
                     </button>
 
-                    <button class="btn btn-outline-danger btn-sm d-none" id="logoutNavItem" type="button">
-                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
-                    </button>
-
-                    <button class="btn btn-ghost" id="darkModeToggle" aria-label="Toggle dark mode" style="cursor: pointer; font-size: 1.2rem; border: none; background: none; padding: 0.5rem;">☀️</button>
+                    <button class="btn btn-ghost" id="darkModeToggle"
+                            style="cursor:pointer;font-size:1.2rem;border:none;background:none;padding:0.5rem;">☀️</button>
                 </div>
             </div>
         </div>
@@ -77,7 +75,7 @@
             <div class="hero-panel mx-auto text-center">
                 <h1 class="fw-bold mb-4">Encuentra y Vende Productos en DevMart</h1>
                 <p class="lead mb-5">DevMart es el marketplace definitivo para ti. Descubre una gran variedad de productos.</p>
-                <div class="hero-cta-group justify-content-center" id="authLinksHero">
+                <div class="hero-cta-group justify-content-center">
                     <a href="#productSection" class="btn btn-primary btn-lg">Explorar Productos</a>
                     <a href="{{ route('register') }}" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
                 </div>
@@ -120,7 +118,6 @@
             </div>
         </div>
     </div>
-    <!-- Toast notification -->
 
     <!-- Cart Drawer -->
     @include('cart-drawer')
@@ -133,20 +130,49 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Constants & state
-        const CSRF      = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-        const isLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
-        const userId    = localStorage.getItem('userId') ?? null;
+    document.addEventListener('DOMContentLoaded', async () => {
+        const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        // Anonymous session token – persists across page loads
+        // Determine auth state from the SERVER
+        let currentUser = null; // will hold user object if logged in
+
+        try {
+            const meRes  = await fetch('/api/me', { credentials: 'same-origin' });
+            const meData = await meRes.json();
+            if (meData.success) {
+                currentUser = meData.user;
+                // Keep vendorId in localStorage only so cart/admin pages can use it
+                localStorage.setItem('vendorId', currentUser.vendor_id ?? '');
+                localStorage.setItem('userTipo', currentUser.tipo);
+            }
+        } catch { /* server unreachable, treat as logged out */ }
+
+        // Update nav UI based on server response
+        const loginNavItem    = document.getElementById('loginNavItem');
+        const registerNavItem = document.getElementById('registerNavItem');
+        const userNavItem     = document.getElementById('userNavItem');
+        const logoutNavItem   = document.getElementById('logoutNavItem');
+
+        if (currentUser) {
+            loginNavItem.classList.add('d-none');
+            registerNavItem.classList.add('d-none');
+            userNavItem.classList.remove('d-none');
+            logoutNavItem.classList.remove('d-none');
+        }
+        // Reveal nav now that we know the state (was hidden to avoid flash)
+        document.querySelector('.nav-auth').style.visibility = 'visible';
+
+        // Cart identity
+        // Logged-in users: identify by user_id (from server)
+        // Anonymous users: identify by a session token stored in localStorage
+        const userId = currentUser ? currentUser.id : null;
+
         let sessionToken = localStorage.getItem('sessionToken');
         if (!sessionToken) {
             sessionToken = crypto.randomUUID();
             localStorage.setItem('sessionToken', sessionToken);
         }
 
-        // Cart identity params
         function cartParams() {
             return userId
                 ? `user_id=${encodeURIComponent(userId)}`
@@ -159,40 +185,34 @@
             return { ...base, ...extra };
         }
 
-        // UI refs
-        const loginNavItem    = document.getElementById('loginNavItem');
-        const registerNavItem = document.getElementById('registerNavItem');
-        const userNavItem     = document.getElementById('userNavItem');
-        const logoutNavItem   = document.getElementById('logoutNavItem');
-        const productGrid     = document.getElementById('productGrid');
-        const searchInput     = document.getElementById('searchInput');
-        const btnSearch       = document.getElementById('btnSearch');
-        const loader          = document.getElementById('loader');
-        const cartList        = document.getElementById('cartList');
-        const cartBadge       = document.getElementById('cartBadge');
-        const cartTotalEl     = document.getElementById('cartTotal');
-        const checkoutBtn     = document.getElementById('checkoutBtn');
-        const toast           = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
-        const toastMsg        = document.getElementById('toastMsg');
-
-        let currentCategory = '';
-
-        // Auth UI
-        if (isLoggedIn) {
-            loginNavItem.classList.add('d-none');
-            registerNavItem.classList.add('d-none');
-            userNavItem.classList.remove('d-none');
-            logoutNavItem.classList.remove('d-none');
-        }
-
-        // Logout handler
-        logoutNavItem?.addEventListener('click', () => {
-            localStorage.removeItem('userLoggedIn');
-            localStorage.removeItem('userId');
+        // Logout
+        logoutNavItem?.addEventListener('click', async () => {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                });
+            } catch { /* ignore */ }
+            localStorage.removeItem('vendorId');
+            localStorage.removeItem('userTipo');
             window.location.reload();
         });
 
-        // Product fetch & render
+        // Products
+        const productGrid   = document.getElementById('productGrid');
+        const searchInput   = document.getElementById('searchInput');
+        const btnSearch     = document.getElementById('btnSearch');
+        const loader        = document.getElementById('loader');
+        const cartBadge     = document.getElementById('cartBadge');
+        const cartList      = document.getElementById('cartList');
+        const cartTotalEl   = document.getElementById('cartTotal');
+        const checkoutBtn   = document.getElementById('checkoutBtn');
+        const toast         = new bootstrap.Toast(document.getElementById('cartToast'), { delay: 2200 });
+        const toastMsg      = document.getElementById('toastMsg');
+
+        let currentCategory = '';
+
         async function fetchProducts() {
             loader.classList.remove('d-none');
             productGrid.innerHTML = '';
@@ -201,7 +221,7 @@
                 const res = await fetch(url);
                 const products = await res.json();
                 renderProducts(products);
-            } catch (e) {
+            } catch {
                 productGrid.innerHTML = '<div class="col-12 text-center text-danger">Error cargando productos.</div>';
             }
             loader.classList.add('d-none');
@@ -251,10 +271,8 @@
             try {
                 const res = await fetch('/api/cart', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': CSRF,
-                    },
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
                     body: JSON.stringify(cartBody({ product_id: productId, qty: 1 })),
                 });
 
@@ -277,7 +295,7 @@
         // Load & render cart
         async function loadCart() {
             try {
-                const res = await fetch(`/api/cart?${cartParams()}`);
+                const res   = await fetch(`/api/cart?${cartParams()}`, { credentials: 'same-origin' });
                 const items = await res.json();
                 renderCart(items);
                 updateCartDrawer(items);
@@ -286,16 +304,15 @@
             }
         }
 
-        // Sync cart data to cart-drawer
         function updateCartDrawer(items) {
             if (window.cartDrawer) {
                 window.cartDrawer.cartData = {};
                 items.forEach(item => {
                     window.cartDrawer.cartData[item.product.id] = {
-                        id: item.product.id,
-                        name: item.product.name,
-                        price: parseFloat(item.product.price),
-                        quantity: item.qty
+                        id:       item.product.id,
+                        name:     item.product.name,
+                        price:    parseFloat(item.product.price),
+                        quantity: item.qty,
                     };
                 });
                 window.cartDrawer.render();
@@ -306,11 +323,8 @@
             const count = items.reduce((s, i) => s + i.qty, 0);
             const total = items.reduce((s, i) => s + (parseFloat(i.product.price) * i.qty), 0);
 
-            // Badge
             cartBadge.textContent = count;
             cartBadge.classList.toggle('d-none', count === 0);
-
-            // Total & checkout
             cartTotalEl.textContent = '$' + total.toFixed(2);
             checkoutBtn.disabled = count === 0;
 
@@ -339,13 +353,11 @@
         document.getElementById('cartList').addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-remove-cart');
             if (!btn) return;
-
             btn.disabled = true;
-            const cartId = btn.dataset.cartId;
-
             try {
-                const res = await fetch(`/api/cart/${cartId}?${cartParams()}`, {
+                const res = await fetch(`/api/cart/${btn.dataset.cartId}?${cartParams()}`, {
                     method: 'DELETE',
+                    credentials: 'same-origin',
                     headers: { 'X-CSRF-TOKEN': CSRF },
                 });
                 if (res.ok) await loadCart();
@@ -368,12 +380,10 @@
             });
         });
 
-        // Dark mode - Simple version
-        document.getElementById('darkModeToggle')?.addEventListener('click', function() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-bs-theme') || 'light';
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            
+        // Dark mode
+        document.getElementById('darkModeToggle')?.addEventListener('click', function () {
+            const html     = document.documentElement;
+            const newTheme = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
             html.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             this.textContent = newTheme === 'dark' ? '☀️' : '🌙';

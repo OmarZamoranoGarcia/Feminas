@@ -1,13 +1,9 @@
-
 <html lang="es" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Admin - DevMart</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    @include('partials.auth-sync')
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -50,22 +46,18 @@
             border: 1px solid var(--bs-border-color-translucent);
         }
         .table { margin-bottom: 0; }
-       
         .product-thumb {
             width: 52px; height: 52px;
             object-fit: cover;
             border-radius: .5rem;
-            /* Agregamos una transición suave para el cambio de tamaño y la sombra */
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            position: relative; /* Necesario para que el z-index funcione */
+            position: relative;
             z-index: 1;
         }
-
-        /* Esta es la nueva regla que se activa al pasar el cursor */
         .product-thumb:hover {
-            transform: scale(1.8); /* Aumenta el tamaño al 180% */
-            z-index: 10; /* Asegura que la imagen sobresalga por encima de otras filas */
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2); /* Le da una pequeña sombra para dar profundidad */
+            transform: scale(1.8);
+            z-index: 10;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
         }
         .btn-gradient {
             background: linear-gradient(45deg, #0d6efd, #0dcaf0);
@@ -99,6 +91,9 @@
                     <a class="nav-link fw-medium" href="{{ route('home') }}">
                         <i class="bi bi-house-door me-1"></i>Ver Sitio
                     </a>
+                    <button class="btn btn-outline-danger btn-sm d-none" id="logoutBtn" type="button">
+                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                    </button>
                     <button class="btn btn-link dark-mode-toggle text-decoration-none p-0" id="darkModeToggle">☀️</button>
                 </div>
             </div>
@@ -123,7 +118,7 @@
                     </h1>
                     <p class="text-secondary mb-0">Crea, edita o elimina tus productos directamente desde tu panel.</p>
                 </div>
-                <button class="btn btn-gradient rounded-pill px-4 shadow-sm" id="newProductButton">
+                <button class="btn btn-gradient rounded-pill px-4 shadow-sm" id="newProductButton" disabled>
                     <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
                 </button>
             </div>
@@ -148,7 +143,7 @@
                         <tr>
                             <td colspan="7" class="text-center text-primary py-5 fw-bold">
                                 <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                                Cargando productos...
+                                Verificando sesión...
                             </td>
                         </tr>
                     </tbody>
@@ -250,31 +245,61 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // State
-        const CSRF     = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-        const isLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
-        // vendorId persisted in localStorage after real login
-        const vendorId = localStorage.getItem('vendorId') ?? 'vendedor-demo-001';
+    document.addEventListener('DOMContentLoaded', async () => {
+        const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        // UI Refs
-        const notLoggedAlert     = document.getElementById('notLoggedAlert');
-        const feedbackBanner     = document.getElementById('feedbackBanner');
-        const productTableBody   = document.getElementById('productTableBody');
-        const newProductButton   = document.getElementById('newProductButton');
-        const productModalEl     = document.getElementById('productModal');
-        const productModal       = new bootstrap.Modal(productModalEl);
-        const deleteModalEl      = document.getElementById('deleteModal');
-        const deleteModal        = new bootstrap.Modal(deleteModalEl);
-        const saveProductButton  = document.getElementById('saveProductButton');
-        const saveBtnLabel       = document.getElementById('saveBtnLabel');
-        const saveBtnSpinner     = document.getElementById('saveBtnSpinner');
-        const confirmDeleteBtn   = document.getElementById('confirmDeleteBtn');
-        const deleteBtnLabel     = document.getElementById('deleteBtnLabel');
-        const deleteBtnSpinner   = document.getElementById('deleteBtnSpinner');
-        const deleteProductName  = document.getElementById('deleteProductName');
+        let currentUser = null;
+        try {
+            const res  = await fetch('/api/me', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (data.success) currentUser = data.user;
+        } catch { /* server unreachable */ }
 
-        // Form fields
+        const notLoggedAlert   = document.getElementById('notLoggedAlert');
+        const newProductButton = document.getElementById('newProductButton');
+        const productTableBody = document.getElementById('productTableBody');
+
+        if (!currentUser) {
+            // Not logged in — show warning, lock table
+            notLoggedAlert.classList.remove('d-none');
+            productTableBody.innerHTML = `
+                <tr><td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-lock fs-2 d-block mb-2"></i>
+                    Inicia sesión para administrar productos.
+                </td></tr>`;
+            return; // stop here
+        }
+
+        const vendorId = currentUser.vendor_id ?? currentUser.id;
+
+        newProductButton.disabled = false;
+        document.getElementById('logoutBtn').classList.remove('d-none');
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                });
+            } catch { /* ignore */ }
+            localStorage.removeItem('vendorId');
+            localStorage.removeItem('userTipo');
+            window.location.href = "{{ route('home') }}";
+        });
+
+        const feedbackBanner    = document.getElementById('feedbackBanner');
+        const productModal      = new bootstrap.Modal(document.getElementById('productModal'));
+        const deleteModal       = new bootstrap.Modal(document.getElementById('deleteModal'));
+        const saveProductButton = document.getElementById('saveProductButton');
+        const saveBtnLabel      = document.getElementById('saveBtnLabel');
+        const saveBtnSpinner    = document.getElementById('saveBtnSpinner');
+        const confirmDeleteBtn  = document.getElementById('confirmDeleteBtn');
+        const deleteBtnLabel    = document.getElementById('deleteBtnLabel');
+        const deleteBtnSpinner  = document.getElementById('deleteBtnSpinner');
+        const deleteProductName = document.getElementById('deleteProductName');
+
         const productIdInput     = document.getElementById('productId');
         const productNameInput   = document.getElementById('productName');
         const productDescInput   = document.getElementById('productDescription');
@@ -286,19 +311,6 @@
         let pendingDeleteId   = null;
         let pendingDeleteName = '';
 
-        // Auth gate
-        if (!isLoggedIn) {
-            notLoggedAlert.classList.remove('d-none');
-            newProductButton.disabled = true;
-            productTableBody.innerHTML = `
-                <tr><td colspan="7" class="text-center text-muted py-5">
-                    <i class="bi bi-lock fs-2 d-block mb-2"></i>
-                    Inicia sesión para administrar productos.
-                </td></tr>`;
-            return; // stop further execution
-        }
-
-        // Feedback helpers
         function showBanner(msg, type = 'success') {
             feedbackBanner.className = `alert alert-${type} rounded-3`;
             feedbackBanner.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2"></i>${msg}`;
@@ -306,14 +318,30 @@
             setTimeout(() => feedbackBanner.classList.add('d-none'), 4000);
         }
 
-        // Load products
+        function statusBadge(status) {
+            const map = { activo: 'success', agotado: 'danger', oculto: 'secondary' };
+            return `<span class="badge bg-${map[status] ?? 'secondary'} text-white">${status}</span>`;
+        }
+
+        function resetForm() {
+            productIdInput.value     = '';
+            productNameInput.value   = '';
+            productDescInput.value   = '';
+            productPriceInput.value  = '';
+            productStockInput.value  = '';
+            productCatInput.value    = '';
+            productStatusInput.value = 'activo';
+            document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
+            saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
+        }
+
         async function fetchProducts() {
             productTableBody.innerHTML = `
                 <tr><td colspan="7" class="text-center text-primary py-5 fw-bold">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
                 </td></tr>`;
             try {
-                const res = await fetch(`/api/products?vendor_id=${encodeURIComponent(vendorId)}`);
+                const res      = await fetch(`/api/products?vendor_id=${encodeURIComponent(vendorId)}`, { credentials: 'same-origin' });
                 const products = await res.json();
                 renderTable(products);
             } catch {
@@ -322,11 +350,6 @@
                         Error cargando productos.
                     </td></tr>`;
             }
-        }
-
-        function statusBadge(status) {
-            const map = { activo: 'success', agotado: 'danger', oculto: 'secondary', pendiente: 'warning' };
-            return `<span class="badge bg-${map[status] ?? 'secondary'} text-white">${status}</span>`;
         }
 
         function renderTable(products) {
@@ -376,37 +399,23 @@
             `).join('');
         }
 
-        // New product
-        function resetForm() {
-            productIdInput.value      = '';
-            productNameInput.value    = '';
-            productDescInput.value    = '';
-            productPriceInput.value   = '';
-            productStockInput.value   = '';
-            productCatInput.value     = '';
-            productStatusInput.value  = 'activo';
-            document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
-            saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
-        }
-
         newProductButton.addEventListener('click', () => {
             resetForm();
             productModal.show();
         });
 
-        // Table action delegation
         productTableBody.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
 
             if (btn.dataset.action === 'edit') {
-                productIdInput.value      = btn.dataset.id;
-                productNameInput.value    = btn.dataset.name;
-                productDescInput.value    = btn.dataset.desc;
-                productPriceInput.value   = btn.dataset.price;
-                productStockInput.value   = btn.dataset.stock;
-                productCatInput.value     = btn.dataset.category;
-                productStatusInput.value  = btn.dataset.status;
+                productIdInput.value     = btn.dataset.id;
+                productNameInput.value   = btn.dataset.name;
+                productDescInput.value   = btn.dataset.desc;
+                productPriceInput.value  = btn.dataset.price;
+                productStockInput.value  = btn.dataset.stock;
+                productCatInput.value    = btn.dataset.category;
+                productStatusInput.value = btn.dataset.status;
                 document.getElementById('productModalLabel').textContent = 'Editar producto';
                 saveBtnLabel.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Actualizar producto';
                 productModal.show();
@@ -420,11 +429,8 @@
             }
         });
 
-        // Save product
         saveProductButton.addEventListener('click', async () => {
-            // Basic HTML5 validation
-            const fields = [productNameInput, productPriceInput, productStockInput];
-            if (fields.some(f => !f.value.trim())) {
+            if (!productNameInput.value.trim() || !productPriceInput.value || !productStockInput.value) {
                 showBanner('Por favor completa los campos obligatorios.', 'warning');
                 return;
             }
@@ -448,15 +454,12 @@
             };
 
             try {
-                const res = await fetch(url, {
+                const res  = await fetch(url, {
                     method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': CSRF,
-                    },
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
                     body: JSON.stringify(payload),
                 });
-
                 const data = await res.json();
 
                 if (res.ok && data.success) {
@@ -464,8 +467,7 @@
                     showBanner(existingId ? 'Producto actualizado correctamente.' : 'Producto creado correctamente.');
                     await fetchProducts();
                 } else {
-                    const msg = data.message ?? JSON.stringify(data.errors ?? 'Error desconocido');
-                    showBanner('Error: ' + msg, 'danger');
+                    showBanner('Error: ' + (data.message ?? JSON.stringify(data.errors ?? '')), 'danger');
                 }
             } catch {
                 showBanner('Error de conexión con el servidor.', 'danger');
@@ -476,7 +478,6 @@
             saveProductButton.disabled = false;
         });
 
-        // Confirm delete
         confirmDeleteBtn.addEventListener('click', async () => {
             if (!pendingDeleteId) return;
 
@@ -485,14 +486,10 @@
             confirmDeleteBtn.disabled = true;
 
             try {
-                const res = await fetch(
+                const res  = await fetch(
                     `/api/products/${pendingDeleteId}?vendor_id=${encodeURIComponent(vendorId)}`,
-                    {
-                        method: 'DELETE',
-                        headers: { 'X-CSRF-TOKEN': CSRF },
-                    }
+                    { method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRF-TOKEN': CSRF } }
                 );
-
                 const data = await res.json();
 
                 if (res.ok && data.success) {
@@ -512,7 +509,6 @@
             pendingDeleteId = null;
         });
 
-        // Dark mode
         const toggleButton = document.getElementById('darkModeToggle');
         const html = document.documentElement;
         toggleButton.innerHTML = html.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
@@ -523,7 +519,6 @@
             toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
         });
 
-        // Init
         fetchProducts();
     });
     </script>

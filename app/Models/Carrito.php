@@ -13,6 +13,7 @@ class Carrito extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'id_carrito',
         'id_usuario',
         'session_token',
         'id_producto',
