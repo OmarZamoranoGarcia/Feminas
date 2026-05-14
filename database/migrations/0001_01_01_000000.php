@@ -10,7 +10,10 @@ return new class extends Migration
     {
         Schema::create('usuarios', function (Blueprint $table) {
             $table->uuid('id_usuario')->primary()->default(DB::raw('(UUID())'));
-            $table->enum('tipo', ['comprador', 'vendedor', 'admin'])->default('comprador');
+
+            // Every user can buy AND sell. Only admins get elevated privileges.
+            $table->boolean('is_admin')->default(false);
+
             $table->string('email', 255)->unique();
             $table->string('password_hash', 255);
             $table->string('nombre', 100);
@@ -18,7 +21,7 @@ return new class extends Migration
             $table->string('telefono', 20)->nullable();
             $table->timestamp('fecha_registro')->useCurrent();
 
-            // ── Seller profile (nullable — only populated for vendedor/admin) ──
+            // Seller profile
             $table->string('razon_social', 200)->nullable();
             $table->string('rfc', 13)->nullable()->unique();
             $table->text('descripcion')->nullable();

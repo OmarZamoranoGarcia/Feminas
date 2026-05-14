@@ -17,7 +17,7 @@ class Usuario extends Authenticatable
     public $timestamps = false;
 
     protected $fillable = [
-        'tipo',
+        'is_admin',
         'email',
         'password_hash',
         'nombre',
@@ -46,21 +46,23 @@ class Usuario extends Authenticatable
             'fecha_registro'        => 'datetime',
             'password_hash'         => 'hashed',
             'calificacion_promedio' => 'decimal:1',
+            'is_admin'              => 'boolean',
         ];
     }
 
-
-    /** Users that can sell (vendedor or admin). */
-    public function scopeVendedores($query)
+    /** Every user can sell — only admins get elevated privileges. */
+    public function esAdmin(): bool
     {
-        return $query->whereIn('tipo', ['vendedor', 'admin']);
+        return (bool) $this->is_admin;
     }
 
-
-    /** True when this user can sell products. */
+    /**
+     * All users can sell products.
+     * Kept for compatibility — always returns true.
+     */
     public function esVendedor(): bool
     {
-        return in_array($this->tipo, ['vendedor', 'admin'], true);
+        return true;
     }
 
     /** Display name for the seller storefront (falls back to nombre). */
@@ -69,8 +71,14 @@ class Usuario extends Authenticatable
         return $this->razon_social ?? $this->nombre;
     }
 
+    /** Scope: only admin accounts. */
+    public function scopeAdmins($query)
+    {
+        return $query->where('is_admin', true);
+    }
 
-    /** Products this user sells (only meaningful when esVendedor()). */
+    // Relationships
+
     public function productos()
     {
         return $this->hasMany(Producto::class, 'id_vendedor', 'id_usuario');

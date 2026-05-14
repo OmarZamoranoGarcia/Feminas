@@ -16,15 +16,17 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
+        // Admin account — elevated privileges
         Usuario::create([
             'id_usuario'    => Str::uuid()->toString(),
-            'tipo'          => 'admin',
+            'is_admin'      => true,
             'email'         => 'admin@devmart.test',
             'password_hash' => Hash::make('password'),
             'nombre'        => 'Admin DevMart',
             'razon_social'  => 'DevMart',
         ]);
 
+        // Regular users — every one of them can buy AND sell
         $vendedoresData = [
             [
                 'nombre'       => 'Carlos Backend',
@@ -44,7 +46,7 @@ class DatabaseSeeder extends Seeder
         foreach ($vendedoresData as $vData) {
             $vendedores[] = Usuario::create([
                 'id_usuario'    => Str::uuid()->toString(),
-                'tipo'          => 'vendedor',
+                'is_admin'      => false,
                 'email'         => $vData['email'],
                 'password_hash' => Hash::make('password'),
                 'nombre'        => $vData['nombre'],
@@ -55,7 +57,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $productosData = [
-            // Carlos – backend
             [
                 'vendedor' => 0,
                 'nombre'   => 'API de Autenticación JWT',
@@ -80,7 +81,6 @@ class DatabaseSeeder extends Seeder
                 'stock'    => 200,
                 'cat'      => 'backend',
             ],
-            // Ana – frontend
             [
                 'vendedor' => 1,
                 'nombre'   => 'Dashboard React Admin',
@@ -110,7 +110,6 @@ class DatabaseSeeder extends Seeder
         foreach ($productosData as $pData) {
             Producto::create([
                 'id_producto' => Str::uuid()->toString(),
-                // id_vendedor now references usuarios.id_usuario directly
                 'id_vendedor' => $vendedores[$pData['vendedor']]->id_usuario,
                 'nombre'      => $pData['nombre'],
                 'descripcion' => $pData['desc'],
@@ -121,9 +120,10 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        // A regular user to test buying
         Usuario::create([
             'id_usuario'    => Str::uuid()->toString(),
-            'tipo'          => 'comprador',
+            'is_admin'      => false,
             'email'         => 'test@example.com',
             'password_hash' => Hash::make('password'),
             'nombre'        => 'Test User',

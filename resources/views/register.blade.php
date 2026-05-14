@@ -41,27 +41,15 @@
                         <h3 class="mb-0">Únete a DevMart</h3>
                     </div>
                     <div class="card-body p-4">
-                        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
 
-                        {{-- Account type tabs --}}
-                        <ul class="nav nav-pills nav-fill mb-4 gap-2" id="tipoTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active rounded-pill" id="tab-comprador"
-                                        data-tipo="comprador" type="button">
-                                    <i class="bi bi-bag me-1"></i>Comprador
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link rounded-pill" id="tab-vendedor"
-                                        data-tipo="vendedor" type="button">
-                                    <i class="bi bi-shop me-1"></i>Vendedor
-                                </button>
-                            </li>
-                        </ul>
+                        <p class="text-muted small text-center mb-4">
+                            Con una sola cuenta puedes <strong>comprar y vender</strong> en DevMart.
+                        </p>
+
+                        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
 
                         <form id="registerForm">
                             @csrf
-                            <input type="hidden" id="tipo" name="tipo" value="comprador">
 
                             <div class="mb-3">
                                 <label for="name" class="form-label fw-medium">Nombre Completo</label>
@@ -75,21 +63,6 @@
                                        placeholder="nombre@ejemplo.com" required autocomplete="email">
                             </div>
 
-                            {{-- Vendor-only fields --}}
-                            <div id="vendorFields" style="display:none;">
-                                <div class="mb-3">
-                                    <label for="razon_social" class="form-label fw-medium">Razón Social / Nombre de Tienda</label>
-                                    <input type="text" name="razon_social" class="form-control" id="razon_social"
-                                           placeholder="Nombre con que aparecerás como vendedor">
-                                    <div class="form-text">Si lo dejas vacío, usaremos tu nombre completo.</div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="rfc" class="form-label fw-medium">RFC <span class="text-muted fw-normal">(opcional)</span></label>
-                                    <input type="text" name="rfc" class="form-control" id="rfc"
-                                           placeholder="RFC000000AAA" maxlength="13">
-                                </div>
-                            </div>
-
                             <div class="mb-3">
                                 <label for="password" class="form-label fw-medium">Contraseña</label>
                                 <input type="password" name="password" class="form-control" id="password"
@@ -101,6 +74,34 @@
                                 <label for="password_confirmation" class="form-label fw-medium">Confirmar Contraseña</label>
                                 <input type="password" name="password_confirmation" class="form-control"
                                        id="password_confirmation" required autocomplete="new-password">
+                            </div>
+
+                            {{-- Optional seller profile — collapsible --}}
+                            <div class="mb-4">
+                                <button class="btn btn-link p-0 text-decoration-none text-muted small"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#sellerProfileCollapse"
+                                        aria-expanded="false">
+                                    <i class="bi bi-shop me-1"></i>
+                                    Añadir perfil de vendedor <span class="text-muted">(opcional)</span>
+                                    <i class="bi bi-chevron-down ms-1"></i>
+                                </button>
+                                <div class="collapse mt-3" id="sellerProfileCollapse">
+                                    <div class="p-3 rounded-3 border" style="background:var(--surface-soft)">
+                                        <div class="mb-3">
+                                            <label for="razon_social" class="form-label fw-medium">Nombre de Tienda / Razón Social</label>
+                                            <input type="text" name="razon_social" class="form-control" id="razon_social"
+                                                   placeholder="Nombre que verán tus compradores">
+                                            <div class="form-text">Si lo dejas vacío, usaremos tu nombre completo.</div>
+                                        </div>
+                                        <div class="mb-0">
+                                            <label for="rfc" class="form-label fw-medium">RFC <span class="text-muted fw-normal">(opcional)</span></label>
+                                            <input type="text" name="rfc" class="form-control" id="rfc"
+                                                   placeholder="RFC000000AAA" maxlength="13">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="d-grid">
@@ -138,18 +139,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-        const tipoInput    = document.getElementById('tipo');
-        const vendorFields = document.getElementById('vendorFields');
-
-        document.querySelectorAll('#tipoTabs .nav-link').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('#tipoTabs .nav-link').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                tipoInput.value = tab.dataset.tipo;
-                vendorFields.style.display = tab.dataset.tipo === 'vendedor' ? 'block' : 'none';
-            });
-        });
-
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -169,13 +158,9 @@
                 email:                 form.email.value.trim(),
                 password:              form.password.value,
                 password_confirmation: form.password_confirmation.value,
-                tipo:                  tipoInput.value,
+                razon_social:          form.razon_social.value.trim() || null,
+                rfc:                   form.rfc.value.trim() || null,
             };
-
-            if (tipoInput.value === 'vendedor') {
-                body.razon_social = form.razon_social.value.trim() || null;
-                body.rfc          = form.rfc.value.trim() || null;
-            }
 
             try {
                 const res  = await fetch("{{ route('register.store') }}", {

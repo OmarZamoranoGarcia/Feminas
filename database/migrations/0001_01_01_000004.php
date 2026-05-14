@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 5. ORDENES (sin FK a pagos todavía para evitar circular)
         Schema::create('ordenes', function (Blueprint $table) {
             $table->uuid('id_orden')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_comprador');
@@ -29,7 +28,6 @@ return new class extends Migration
             $table->index('fecha_orden');
         });
 
-        // 6. DETALLE_ORDEN
         Schema::create('detalle_orden', function (Blueprint $table) {
             $table->uuid('id_detalle')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_orden');
@@ -49,8 +47,8 @@ return new class extends Migration
                   ->onDelete('restrict');
 
             $table->foreign('id_vendedor')
-                  ->references('id_vendedor')
-                  ->on('vendedores')
+                  ->references('id_usuario')
+                  ->on('usuarios')
                   ->onDelete('restrict');
 
             $table->index('id_orden');
@@ -58,7 +56,6 @@ return new class extends Migration
             $table->index('id_vendedor');
         });
 
-        // 7. PAGOS
         Schema::create('pagos', function (Blueprint $table) {
             $table->uuid('id_pago')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_orden');
@@ -78,7 +75,6 @@ return new class extends Migration
             $table->index('estado');
         });
 
-        // Now add the circular FK from ordenes → pagos
         Schema::table('ordenes', function (Blueprint $table) {
             $table->foreign('id_transaccion_pago')
                   ->references('id_pago')
@@ -86,7 +82,6 @@ return new class extends Migration
                   ->onDelete('set null');
         });
 
-        // 8. SPLIT_PAGOS
         Schema::create('split_pagos', function (Blueprint $table) {
             $table->uuid('id_split')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_pago');
@@ -101,8 +96,8 @@ return new class extends Migration
                   ->onDelete('cascade');
 
             $table->foreign('id_vendedor')
-                  ->references('id_vendedor')
-                  ->on('vendedores')
+                  ->references('id_usuario')
+                  ->on('usuarios')
                   ->onDelete('restrict');
 
             $table->index('id_pago');
@@ -110,7 +105,6 @@ return new class extends Migration
             $table->index('estado_liberacion');
         });
 
-        // 9. ENVIOS
         Schema::create('envios', function (Blueprint $table) {
             $table->uuid('id_envio')->primary()->default(DB::raw('(UUID())'));
             $table->uuid('id_orden');
