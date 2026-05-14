@@ -81,12 +81,13 @@
         // Lógica de Login
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            // Simulamos el guardado de sesión
             localStorage.setItem('userLoggedIn', 'true');
-            // Simulamos un carrito inicial si no existe para que veas algo en el panel
+            localStorage.setItem('vendorId', localStorage.getItem('vendorId') || 'vendedor-demo-001');
+
             if (!localStorage.getItem('cart')) {
                 localStorage.setItem('cart', JSON.stringify([{id: 1, name: 'API de Pagos', price: 29.99}]));
             }
+
             window.location.href = "{{ route('home') }}";
         });
 

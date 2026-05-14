@@ -39,8 +39,9 @@
                     <a class="nav-link" href="{{ route('home') }}">Inicio</a>
                     <a class="btn btn-ghost" href="#">Productos</a>
                     <a class="btn btn-ghost" href="#">Vender</a>
-                    <a class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
-                    <a class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
+                    <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
+                    <a id="loginNavItem" class="btn btn-primary" href="{{ route('login') }}">Iniciar Sesión</a>
+                    <a id="userNavItem" class="btn btn-outline-primary btn-sm d-none" href="{{ route('admin') }}">Mi Panel</a>
                     <a class="btn btn-outline-primary btn-sm" href="{{ route('admin') }}">Admin</a>
                     <button class="btn btn-link dark-mode-toggle" id="darkModeToggle" aria-label="Toggle dark mode">☀️</button>
                 </div>
@@ -53,7 +54,7 @@
             <div class="hero-panel mx-auto text-center">
                 <h1 class="fw-bold mb-4">Encuentra y Vende Productos en DevMart</h1>
                 <p class="lead mb-5">DevMart es el marketplace definitivo para ti. Descubre una gran variedad de productos.</p>
-                <div class="hero-cta-group justify-content-center">
+                <div class="hero-cta-group justify-content-center" id="authLinksHero">
                     <a href="#" class="btn btn-primary btn-lg">Explorar Productos</a>
                     <a href="#" class="btn btn-outline-secondary btn-lg">Vender en DevMart</a>
                 </div>
