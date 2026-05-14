@@ -102,7 +102,6 @@
 
     <div class="container my-5 admin-container">
 
-        <!-- Not logged in warning -->
         <div id="notLoggedAlert" class="alert alert-warning d-none shadow-sm rounded-4 border-0" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             Debes iniciar sesión para administrar tus productos.
@@ -116,14 +115,13 @@
                     <h1 class="mb-1 h3 fw-bold">
                         <i class="bi bi-grid-1x2 me-2 text-primary"></i>Gestión de Productos
                     </h1>
-                    <p class="text-secondary mb-0" id="panelSubtitle">Crea, edita o elimina productos directamente desde tu panel.</p>
+                    <p class="text-secondary mb-0" id="panelSubtitle">Crea, edita o elimina tus productos directamente desde tu panel.</p>
                 </div>
                 <button class="btn btn-gradient rounded-pill px-4 shadow-sm" id="newProductButton" disabled>
                     <i class="bi bi-plus-lg me-1"></i>Nuevo Producto
                 </button>
             </div>
 
-            <!-- Feedback banner -->
             <div id="feedbackBanner" class="alert d-none mb-3 rounded-3" role="alert"></div>
 
             <div class="table-responsive shadow-sm">
@@ -153,43 +151,43 @@
     </div>
 
     <!-- Product Modal -->
-    <div class="modal fade" id="productModal" tabindex="-1"
-         aria-labelledby="productModalLabel" aria-hidden="true">
+    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header border-bottom-0 pb-0">
                     <h5 class="modal-title fw-bold" id="productModalLabel">Agregar nuevo producto</h5>
-                    <button type="button" class="btn-close shadow-none"
-                            data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body pt-4">
                     <input type="hidden" id="productId">
-                    {{-- For admin: stores the actual vendor_id of the product being edited --}}
                     <input type="hidden" id="productActualVendorId">
                     <div class="row g-4">
+                        <!-- Admin-only: vendor selector. Hidden for regular vendors. -->
+                        <div class="col-12 d-none" id="vendorSelectorRow">
+                            <label for="productVendorSelect" class="form-label fw-medium">Vendedor</label>
+                            <select class="form-select rounded-3" id="productVendorSelect">
+                                <option value="">— Selecciona un vendedor —</option>
+                            </select>
+                        </div>
                         <div class="col-md-6">
                             <label for="productName" class="form-label fw-medium">Nombre del Producto</label>
                             <input type="text" class="form-control rounded-3" id="productName" required>
                         </div>
                         <div class="col-md-6">
                             <label for="productCategory" class="form-label fw-medium">Categoría</label>
-                            <input type="text" class="form-control rounded-3" id="productCategory"
-                                   placeholder="Backend, Frontend, UI...">
+                            <input type="text" class="form-control rounded-3" id="productCategory" placeholder="Backend, Frontend, UI...">
                         </div>
                         <div class="col-md-6">
                             <label for="productPrice" class="form-label fw-medium">Precio ($)</label>
-                            <input type="number" step="0.01" min="0"
-                                   class="form-control rounded-3" id="productPrice" required>
+                            <input type="number" step="0.01" min="0" class="form-control rounded-3" id="productPrice" required>
                         </div>
                         <div class="col-md-6">
                             <label for="productStock" class="form-label fw-medium">Stock Disponible</label>
-                            <input type="number" min="0"
-                                   class="form-control rounded-3" id="productStock" required>
+                            <input type="number" min="0" class="form-control rounded-3" id="productStock" required>
                         </div>
                         <div class="col-12">
                             <label for="productDescription" class="form-label fw-medium">Descripción</label>
-                            <textarea class="form-control rounded-3"
-                                      id="productDescription" rows="4"></textarea>
+                            <textarea class="form-control rounded-3" id="productDescription" rows="4"></textarea>
                         </div>
                         <div class="col-md-6">
                             <label for="productStatus" class="form-label fw-medium">Estado</label>
@@ -202,10 +200,8 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light rounded-pill px-4"
-                            data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm"
-                            id="saveProductButton">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm" id="saveProductButton">
                         <span id="saveBtnLabel"><i class="bi bi-check-lg me-1"></i>Guardar producto</span>
                         <span id="saveBtnSpinner" class="d-none">
                             <span class="spinner-border spinner-border-sm me-1"></span>Guardando...
@@ -226,8 +222,7 @@
                     <p class="text-muted small mb-0" id="deleteProductName"></p>
                 </div>
                 <div class="modal-footer justify-content-center border-0 pt-0">
-                    <button class="btn btn-light rounded-pill px-4"
-                            data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-danger rounded-pill px-4" id="confirmDeleteBtn">
                         <span id="deleteBtnLabel">Eliminar</span>
                         <span id="deleteBtnSpinner" class="d-none">
@@ -271,7 +266,7 @@
             return;
         }
 
-        const isAdmin  = currentUser.tipo === 'admin';
+        const isAdmin    = currentUser.tipo === 'admin';
         const myVendorId = currentUser.vendor_id ?? null; // null for admins
 
         if (isAdmin) {
@@ -281,6 +276,32 @@
 
         newProductButton.disabled = false;
         document.getElementById('logoutBtn').classList.remove('d-none');
+
+        let vendorsList = []; // [{ id, name }]
+        if (isAdmin) {
+            try {
+                const res  = await fetch('/api/products', { credentials: 'same-origin' });
+                const prods = await res.json();
+                const seen  = new Map();
+                prods.forEach(p => {
+                    if (p.vendor_id && !seen.has(p.vendor_id)) {
+                        seen.set(p.vendor_id, p.seller);
+                    }
+                });
+                vendorsList = Array.from(seen, ([id, name]) => ({ id, name }));
+            } catch { /* ignore, selector will be empty */ }
+
+            // Populate the vendor <select>
+            const sel = document.getElementById('productVendorSelect');
+            vendorsList.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value       = v.id;
+                opt.textContent = v.name;
+                sel.appendChild(opt);
+            });
+
+            document.getElementById('vendorSelectorRow').classList.remove('d-none');
+        }
 
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
@@ -306,17 +327,18 @@
         const deleteBtnSpinner  = document.getElementById('deleteBtnSpinner');
         const deleteProductName = document.getElementById('deleteProductName');
 
-        const productIdInput          = document.getElementById('productId');
-        const productActualVendorId   = document.getElementById('productActualVendorId');
-        const productNameInput        = document.getElementById('productName');
-        const productDescInput        = document.getElementById('productDescription');
-        const productPriceInput       = document.getElementById('productPrice');
-        const productStockInput       = document.getElementById('productStock');
-        const productCatInput         = document.getElementById('productCategory');
-        const productStatusInput      = document.getElementById('productStatus');
+        const productIdInput        = document.getElementById('productId');
+        const productActualVendorId = document.getElementById('productActualVendorId');
+        const productVendorSelect   = document.getElementById('productVendorSelect');
+        const productNameInput      = document.getElementById('productName');
+        const productDescInput      = document.getElementById('productDescription');
+        const productPriceInput     = document.getElementById('productPrice');
+        const productStockInput     = document.getElementById('productStock');
+        const productCatInput       = document.getElementById('productCategory');
+        const productStatusInput    = document.getElementById('productStatus');
 
-        let pendingDeleteId      = null;
-        let pendingDeleteName    = '';
+        let pendingDeleteId       = null;
+        let pendingDeleteName     = '';
         let pendingDeleteVendorId = null;
 
         function showBanner(msg, type = 'success') {
@@ -340,18 +362,17 @@
             productStockInput.value       = '';
             productCatInput.value         = '';
             productStatusInput.value      = 'activo';
+            if (isAdmin) productVendorSelect.value = '';
             document.getElementById('productModalLabel').textContent = 'Agregar nuevo producto';
             saveBtnLabel.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar producto';
         }
 
-        // Admins fetch all products; vendors filter by their own vendor_id.
         async function fetchProducts() {
             productTableBody.innerHTML = `
                 <tr><td colspan="7" class="text-center text-primary py-5 fw-bold">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
                 </td></tr>`;
             try {
-                // Vendors pass their vendor_id as a filter; admins don't.
                 const url = myVendorId
                     ? `/api/products?vendor_id=${encodeURIComponent(myVendorId)}`
                     : `/api/products`;
@@ -417,25 +438,28 @@
             `).join('');
         }
 
+        // ── 6. New product button ──────────────────────────────────────────────
         newProductButton.addEventListener('click', () => {
             resetForm();
             productModal.show();
         });
 
+        // ── 7. Edit / Delete row buttons ───────────────────────────────────────
         productTableBody.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
 
             if (btn.dataset.action === 'edit') {
-                productIdInput.value          = btn.dataset.id;
-                // Store the product's real vendor_id so the API call is correct
-                productActualVendorId.value   = btn.dataset.vendorId;
-                productNameInput.value        = btn.dataset.name;
-                productDescInput.value        = btn.dataset.desc;
-                productPriceInput.value       = btn.dataset.price;
-                productStockInput.value       = btn.dataset.stock;
-                productCatInput.value         = btn.dataset.category;
-                productStatusInput.value      = btn.dataset.status;
+                productIdInput.value        = btn.dataset.id;
+                productActualVendorId.value = btn.dataset.vendorId;
+                productNameInput.value      = btn.dataset.name;
+                productDescInput.value      = btn.dataset.desc;
+                productPriceInput.value     = btn.dataset.price;
+                productStockInput.value     = btn.dataset.stock;
+                productCatInput.value       = btn.dataset.category;
+                productStatusInput.value    = btn.dataset.status;
+                // Show vendor in selector when admin edits (read-only context)
+                if (isAdmin) productVendorSelect.value = btn.dataset.vendorId;
                 document.getElementById('productModalLabel').textContent = 'Editar producto';
                 saveBtnLabel.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Actualizar producto';
                 productModal.show();
@@ -450,26 +474,34 @@
             }
         });
 
+        // ── 8. Save product ────────────────────────────────────────────────────
         saveProductButton.addEventListener('click', async () => {
             if (!productNameInput.value.trim() || !productPriceInput.value || !productStockInput.value) {
                 showBanner('Por favor completa los campos obligatorios.', 'warning');
                 return;
             }
 
+            const existingId = productIdInput.value;
+
+            let vendorIdForPayload;
+            if (existingId) {
+                vendorIdForPayload = productActualVendorId.value || myVendorId;
+            } else if (isAdmin) {
+                vendorIdForPayload = productVendorSelect.value;
+                if (!vendorIdForPayload) {
+                    showBanner('Selecciona un vendedor para este producto.', 'warning');
+                    return;
+                }
+            } else {
+                vendorIdForPayload = myVendorId;
+            }
+
             saveBtnLabel.classList.add('d-none');
             saveBtnSpinner.classList.remove('d-none');
             saveProductButton.disabled = true;
 
-            const existingId = productIdInput.value;
             const url    = existingId ? `/api/products/${existingId}` : '/api/products';
             const method = existingId ? 'PUT' : 'POST';
-
-            // For new products: vendors use their own vendor_id; admins must pick one
-            // (for now admins create under the first available vendor — extend as needed).
-            // For edits: use the product's actual vendor_id so the ownership check passes.
-            const vendorIdForPayload = existingId
-                ? (productActualVendorId.value || myVendorId)  // editing: use product's real vendor
-                : myVendorId;                                   // creating: use logged-in vendor
 
             const payload = {
                 vendor_id:   vendorIdForPayload,
@@ -491,7 +523,6 @@
                     },
                     body: JSON.stringify(payload),
                 });
-
                 const data = await res.json();
 
                 if (res.ok && data.success) {
@@ -502,7 +533,7 @@
                     showBanner('Error: ' + (data.message ?? JSON.stringify(data.errors ?? '')), 'danger');
                 }
             } catch (err) {
-                showBanner('Error de conexión con el servidor: ' + err.message, 'danger');
+                showBanner('Error de conexión: ' + err.message, 'danger');
             }
 
             saveBtnLabel.classList.remove('d-none');
@@ -517,21 +548,17 @@
             deleteBtnSpinner.classList.remove('d-none');
             confirmDeleteBtn.disabled = true;
 
-            // Pass the product's actual vendor_id so ownership check in the API passes.
-            // Admins: pendingDeleteVendorId holds the product's real vendor_id.
+            // Pass the product's real vendor_id so the ownership check in the API passes.
             const vendorParam = pendingDeleteVendorId
-                ? `vendor_id=${encodeURIComponent(pendingDeleteVendorId)}`
+                ? `?vendor_id=${encodeURIComponent(pendingDeleteVendorId)}`
                 : '';
 
             try {
-                const res  = await fetch(
-                    `/api/products/${pendingDeleteId}${vendorParam ? '?' + vendorParam : ''}`,
-                    {
-                        method: 'DELETE',
-                        credentials: 'same-origin',
-                        headers: { 'X-CSRF-TOKEN': CSRF },
-                    }
-                );
+                const res  = await fetch(`/api/products/${pendingDeleteId}${vendorParam}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-TOKEN': CSRF },
+                });
                 const data = await res.json();
 
                 if (res.ok && data.success) {

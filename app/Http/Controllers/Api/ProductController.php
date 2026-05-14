@@ -33,6 +33,11 @@ class ProductController extends Controller
             $query->where('categoria', $categoria);
         }
 
+        // Vendor filter (used by vendor panel to scope their own products)
+        if ($vendorId = $request->query('vendor_id')) {
+            $query->where('id_vendedor', $vendorId);
+        }
+
         $productos = $query
             ->orderBy('fecha_creacion', 'desc')
             ->limit(50)
@@ -113,6 +118,9 @@ class ProductController extends Controller
     {
         $producto = Producto::findOrFail($id);
 
+        // Ownership check: only run when vendor_id is provided AND it differs from the product's vendor.
+        // Admins send the product's own vendor_id , so this check passes.
+        // If vendor_id is omitted entirely, we skip the check .
         $vendorId = $request->input('vendor_id');
         if ($vendorId && $producto->id_vendedor !== $vendorId) {
             return response()->json([
@@ -155,6 +163,7 @@ class ProductController extends Controller
     {
         $producto = Producto::findOrFail($id);
 
+        // Same logic as update: skip ownership check when vendor_id is absent
         $vendorId = $request->query('vendor_id');
         if ($vendorId && $producto->id_vendedor !== $vendorId) {
             return response()->json([
@@ -175,7 +184,7 @@ class ProductController extends Controller
     {
         return [
             'id'          => $p->id_producto,
-            'vendor_id'   => $p->id_vendedor,   // ← exposed so the frontend can pass it back
+            'vendor_id'   => $p->id_vendedor,
             'name'        => $p->nombre,
             'description' => $p->descripcion,
             'price'       => number_format((float) $p->precio, 2),
