@@ -45,22 +45,23 @@
                     </div>
                     <div class="card-body p-4">
                         <p class="text-muted text-center mb-4">Completa tus datos para crear una cuenta</p>
-                        <form id="registerForm">
+                        <form id="registerForm" method="POST">
+                            @csrf
                             <div class="mb-3">
                                 <label for="name" class="form-label">Nombre Completo</label>
-                                <input type="text" class="form-control" id="name" placeholder="Tu nombre" required>
+                                <input type="text" name="name" class="form-control" id="name" placeholder="Tu nombre" required>
                             </div>
                             <div class="mb-3">
                                 <label for="email" class="form-label">Correo Electrónico</label>
-                                <input type="email" class="form-control" id="email" placeholder="nombre@ejemplo.com" required>
+                                <input type="email" name="email" class="form-control" id="email" placeholder="nombre@ejemplo.com" required>
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Contraseña</label>
-                                <input type="password" class="form-control" id="password" required>
+                                <input type="password" name="password" class="form-control" id="password" required>
                             </div>
                             <div class="mb-3">
                                 <label for="password_confirmation" class="form-label">Confirmar Contraseña</label>
-                                <input type="password" class="form-control" id="password_confirmation" required>
+                                <input type="password" name="password_confirmation" class="form-control" id="password_confirmation" required>
                             </div>
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary btn-lg">Registrarse</button>
@@ -86,8 +87,29 @@
     <script>
         document.getElementById('registerForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            alert('Registro exitoso (simulado). Ahora puedes iniciar sesión.');
-            window.location.href = "{{ route('login') }}";
+
+            const formData = new FormData(this);
+
+            fetch("{{ route('register.store') }}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('¡Registro exitoso! Ahora puedes iniciar sesión con tu cuenta real.');
+                    window.location.href = "{{ route('login') }}";
+                } else {
+                    alert('Error en el registro: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocurrió un error al procesar el registro. Asegúrate de que la base de datos esté conectada.');
+            });
         });
 
         document.addEventListener('DOMContentLoaded', () => {

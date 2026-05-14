@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WelcomeController;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Auth\RegisterController;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 
@@ -16,3 +18,18 @@ Route::get('/admin', function () {
 Route::get('/register', function () {
     return view('register');
 })->name('register');
+
+Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
+
+Route::get('/check-db', function () {
+    try {
+        DB::connection()->getPdo();
+        return response()->json([
+            'success' => true,
+            'database' => DB::connection()->getDatabaseName(),
+            'message' => 'Conexión establecida correctamente con los datos del .env.'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+});
