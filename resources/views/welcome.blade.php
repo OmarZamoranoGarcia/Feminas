@@ -43,7 +43,6 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions nav-auth">
-                    <a class="nav-link" href="{{ route('home') }}">Inicio</a>
 
                     {{-- Logged OUT --}}
                     <a id="registerNavItem" class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
