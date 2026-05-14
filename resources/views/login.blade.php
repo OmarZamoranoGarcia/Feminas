@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - DevMart</title>
-    
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('partials.auth-sync')
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ asset('css/style.css') }}" rel="stylesheet">
-
-    <style>
-        body { transition: background-color 0.3s ease, color 0.3s ease; }
-        .dark-mode-toggle { cursor: pointer; font-size: 1.5rem; }
-    </style>
 
     <script>
         (function() {
@@ -24,16 +23,10 @@
     <nav class="navbar navbar-expand-lg sticky-top py-3">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4" href="{{ route('home') }}">DevMart</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <div class="ms-auto d-flex align-items-center flex-wrap gap-2 nav-actions">
-                    <a class="nav-link" href="{{ route('home') }}">Inicio</a>
-                    <a class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
-                    <a class="btn btn-outline-primary btn-sm" href="{{ route('admin') }}">Admin</a>
-                    <button class="btn btn-link dark-mode-toggle" id="darkModeToggle">☀️</button>
-                </div>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <a class="nav-link" href="{{ route('home') }}">Inicio</a>
+                <a class="btn btn-ghost" href="{{ route('register') }}">Registrarse</a>
+                <button class="btn btn-link" id="darkModeToggle" style="font-size:1.5rem">☀️</button>
             </div>
         </div>
     </nav>
@@ -46,22 +39,32 @@
                         <h3 class="mb-0">Bienvenido de nuevo</h3>
                     </div>
                     <div class="card-body p-4">
-                        <p class="text-muted text-center mb-4">Ingresa tus credenciales para acceder</p>
+                        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+
                         <form id="loginForm">
                             <div class="mb-3">
                                 <label for="email" class="form-label">Correo Electrónico</label>
-                                <input type="email" class="form-control" id="email" placeholder="nombre@ejemplo.com" required>
+                                <input type="email" class="form-control" id="email"
+                                       placeholder="nombre@ejemplo.com" required>
                             </div>
                             <div class="mb-3">
                                 <label for="password" class="form-label">Contraseña</label>
                                 <input type="password" class="form-control" id="password" required>
                             </div>
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">Ingresar</button>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                    <span id="submitLabel">Ingresar</span>
+                                    <span id="submitSpinner" class="d-none">
+                                        <span class="spinner-border spinner-border-sm me-1"></span>Entrando...
+                                    </span>
+                                </button>
                             </div>
                         </form>
+
                         <div class="text-center mt-4">
-                            <p class="mb-2 text-muted small">¿No tienes cuenta? <a href="{{ route('register') }}">Regístrate</a></p>
+                            <p class="mb-2 text-muted small">
+                                ¿No tienes cuenta? <a href="{{ route('register') }}">Regístrate</a>
+                            </p>
                             <a href="{{ route('home') }}" class="text-decoration-none">← Volver al inicio</a>
                         </div>
                     </div>
@@ -70,42 +73,72 @@
         </div>
     </div>
 
-    <footer class="bg-body-tertiary text-center py-4 mt-5 border-top">
-        <div class="container">
-            <p class="mb-0">&copy; {{ date('Y') }} DevMart. Todos los derechos reservados.</p>
-        </div>
-    </footer>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Lógica de Login
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            localStorage.setItem('userLoggedIn', 'true');
-            localStorage.setItem('vendorId', localStorage.getItem('vendorId') || 'vendedor-demo-001');
+    const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 
-            if (!localStorage.getItem('cart')) {
-                localStorage.setItem('cart', JSON.stringify([{id: 1, name: 'API de Pagos', price: 29.99}]));
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const submitBtn    = document.getElementById('submitBtn');
+        const submitLabel  = document.getElementById('submitLabel');
+        const submitSpinner = document.getElementById('submitSpinner');
+        const errorAlert   = document.getElementById('errorAlert');
+
+        // Loading state
+        submitBtn.disabled = true;
+        submitLabel.classList.add('d-none');
+        submitSpinner.classList.remove('d-none');
+        errorAlert.classList.add('d-none');
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF,
+                },
+                body: JSON.stringify({
+                    email:    document.getElementById('email').value,
+                    password: document.getElementById('password').value,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                // Persist user info — vendor_id will be the real UUID from the DB
+                localStorage.setItem('userLoggedIn', 'true');
+                localStorage.setItem('userId',    data.user.id);
+                localStorage.setItem('userName',  data.user.name);
+                localStorage.setItem('userTipo',  data.user.tipo);
+                localStorage.setItem('vendorId',  data.user.vendor_id ?? '');
+
+                window.location.href = "{{ route('home') }}";
+            } else {
+                errorAlert.textContent = data.message ?? 'Error al iniciar sesión.';
+                errorAlert.classList.remove('d-none');
             }
+        } catch {
+            errorAlert.textContent = 'Error de conexión con el servidor.';
+            errorAlert.classList.remove('d-none');
+        }
 
-            window.location.href = "{{ route('home') }}";
-        });
+        submitBtn.disabled = false;
+        submitLabel.classList.remove('d-none');
+        submitSpinner.classList.add('d-none');
+    });
 
-        // Lógica de Dark Mode (Debe repetirse en cada archivo ahora)
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggleButton = document.getElementById('darkModeToggle');
-            if (toggleButton) {
-                const htmlElement = document.documentElement;
-                toggleButton.innerHTML = htmlElement.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
-
-                toggleButton.addEventListener('click', () => {
-                    const newTheme = htmlElement.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
-                    htmlElement.setAttribute('data-bs-theme', newTheme);
-                    localStorage.setItem('theme', newTheme);
-                    toggleButton.innerHTML = newTheme === 'dark' ? '🌙' : '☀️';
-                });
-            }
-        });
+    // Dark mode
+    const toggle = document.getElementById('darkModeToggle');
+    const html   = document.documentElement;
+    toggle.textContent = html.getAttribute('data-bs-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', () => {
+        const t = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-bs-theme', t);
+        localStorage.setItem('theme', t);
+        toggle.textContent = t === 'dark' ? '🌙' : '☀️';
+    });
     </script>
 </body>
 </html>
